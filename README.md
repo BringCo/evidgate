@@ -7,17 +7,18 @@ produced file, or the code that produced it.
 
 ```console
 $ evidgate run --dir examples/mixed
-evidgate 0.1.0 · mixed-delivery (fictional) · 7 checks
-   D1 FAIL(红)  草稿里的绝对化词带范围或检索日期  ─  -exit 2 (want 0) | got: L3 [首次] 本方案首次实现全自动估价流程。
-   D2 DIFF(黄)  草稿里的统计数字带口径  ─  -exit 3 (want 0) | got: L3 抽样调参后误差降低 18.4%。
+evidgate 0.9.0 · mixed-delivery (fictional) · 7 checks
+   D1 FAIL(红)  草稿里的绝对化词带范围或检索日期  ─  -exit 2 (want 0) | got: L3 [首次实现] 本方案首次实现全自动估价流程。 | [absolutes] 1 finding(s)  (exit 2)
+   D2 DIFF(黄)  草稿里的统计数字带口径  ─  -exit 3 (want 0) | got: L3 抽样调参后误差降低 18.4%。 | [numeral_scope] 1 finding(s)  (exit 3)
    A1 PASS     产物存在且非空  ─  +exit 0 (want 0) ; +regex OK ─ \d -> 3
    A2 FAIL(红)  正本与其派生副本逐字节一致  ─  -exit 1 (want 0)
    C1 PASS     代码单测全绿  ─  +exit 0 (want 0)
-   C2 PASS     源码里没有明文密钥  ─  +not_contains OK:api_key ; +not_contains OK:secret_key
+   C2 PASS     源码里没有明文密钥  ─  +exit 0 (want 0) ; +not_contains OK:api_key ; +not_contains OK:secret_key
    C3 PASS     源码里没有残留 TODO  ─  +exit 1 (want 1)
 
-PASS 4 · DIFF(黄) 1 · FAIL(红) 2 · 待补 0 | coverage 7/7 (100.0%)
+PASS 4 · DIFF(黄) 1 · FAIL(红) 2 · 待补 0 · 未覆盖 0 | coverage 7/7 (100.0%)
 RELEASE BLOCKED  blocked by D1, A2
+note: PASS 表示「证据存在且可复现」，不表示数值本身正确。
 ```
 
 Red blocks the release. Yellow goes to a confirmation list. **待补 is never "done".**
@@ -61,7 +62,7 @@ git clone https://github.com/BringCo/evidgate && cd evidgate
 ./bin/evidgate --version        # zero-install entry point, stdlib only
 
 # or as a package
-pip install evidgate
+pip install evidgate            # PyPI release pending; use the clone for now
 ```
 
 Python 3.9+; CI runs the suite on 3.9 and 3.12 (developed and exercised on 3.12/3.14).
@@ -325,7 +326,7 @@ a hash and a timestamp, and why packs here check artifacts rather than prose.
 
 ## Examples
 
-Both are **fictional**; every defect is planted on purpose.
+All examples are **fictional**; every defect is planted on purpose.
 
 - `examples/mixed/` — prose + artifact + code in one ledger (the output above).
   Run: `./bin/evidgate run --dir examples/mixed`
@@ -336,6 +337,9 @@ Both are **fictional**; every defect is planted on purpose.
   and clean, never stamped ("cannot tell"), stamped but the source moved on. Figures are
   generated, not real assets.
   Run: `./bin/evidgate run --dir examples/figures`
+- `examples/artifact/` — one markdown source with two derivatives, four asset checks
+  (registered / stale / hand-edited / unregistered) on one ledger. 1 PASS / 2 DIFF / 1 FAIL.
+  Run: `./bin/evidgate run --dir examples/artifact`
 
 Mutation demo:
 
