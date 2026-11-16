@@ -564,10 +564,11 @@ class TestProseAgainstRealWorldWording(unittest.TestCase):
 
 
 class TestPacks(unittest.TestCase):
-    def test_figures_pack_expands_to_three_checks(self):
+    def test_figures_pack_expands(self):
         from evidgate.core.packs import load_packs
         chks = load_packs(["figures"])
-        self.assertEqual([c.cid for c in chks], ["GF1", "GF2", "GF3"])
+        # GF0 guards against an all-source manifest, which would make GF1-GF3 no-ops
+        self.assertEqual([c.cid for c in chks], ["GF0", "GF1", "GF2", "GF3"])
         self.assertIn("artifacts.json", chks[0].method)
         for c in chks:
             self.assertTrue(c.counter.strip(), "a pack check must carry its counter-test")
@@ -576,8 +577,8 @@ class TestPacks(unittest.TestCase):
         from evidgate.core.packs import load_packs
         chks = load_packs(["figures:manifest=mine.json,outdir=figs"])
         self.assertIn("mine.json", chks[0].method)
-        self.assertIn("figs", chks[2].name)
-        self.assertIn("--dir figs", chks[2].method)
+        self.assertIn("figs", chks[3].name)
+        self.assertIn("--dir figs", chks[3].method)
 
     def test_unknown_pack_fails_loudly(self):
         from evidgate.core.packs import load_packs
@@ -720,3 +721,43 @@ class TestSuggest(unittest.TestCase):
             cfg = os.path.join(d, "evidgate.yaml")
             self.assertTrue(os.path.exists(cfg))
             self.assertIn("packs: figures", open(cfg, encoding="utf-8").read())
+
+
+class TestNoDerivativesIsNotGreen(unittest.TestCase):
+    """A manifest of 172 sources must not read as "my figures are in order"."""
+
+    def test_derivatives_rule_flags_an_all_source_manifest(self):
+        import json, tempfile, os
+        from evidgate.plugins import artifact
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, "a.png"); open(f, "w").write("x")
+            man = os.path.join(d, "artifacts.json")
+            json.dump({"root": ".", "items": [{"path": "a.png", "role": "source"}]},
+                      open(man, "w"))
+            hits = artifact.rule_derivatives(man)
+            self.assertTrue(hits)
+            self.assertIn("没有任何派生项", hits[0])
+
+    def test_derivatives_rule_accepts_a_declared_source(self):
+        import json, tempfile, os
+        from evidgate.plugins import artifact
+        with tempfile.TemporaryDirectory() as d:
+            for name in ("a.svg", "a.png"):
+                open(os.path.join(d, name), "w").write("x")
+            man = os.path.join(d, "artifacts.json")
+            json.dump({"root": ".", "items": [
+                {"path": "a.svg", "role": "source"},
+                {"path": "a.png", "role": "derivative", "source": "a.svg"}]}, open(man, "w"))
+            self.assertEqual(artifact.rule_derivatives(man), [])
+
+    def test_emacs_lock_files_and_dangling_links_do_not_abort_the_scan(self):
+        import os, subprocess, sys, tempfile, json
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "real.txt"), "w").write("x")
+            os.symlink(os.path.join(d, "nope"), os.path.join(d, ".#broken"))
+            os.symlink("/definitely/not/here", os.path.join(d, "dangling"))
+            r = subprocess.run([sys.executable, "-m", "evidgate.cli", "artifact-init",
+                                "--dir", d, "--out", "a.json"], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr[-300:])
+            items = json.load(open(os.path.join(d, "a.json")))["items"]
+            self.assertEqual([i["path"] for i in items], ["real.txt"])

@@ -12,7 +12,13 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-FIG_DIRS = ("figures", "figs", "plots", "charts", "images", "imgs")
+FIG_DIRS = ("figures", "figs", "plots", "charts", "images", "imgs", "img", "pictures")
+# Vector/authoring sources that real theses actually use, not just SVG.
+FIG_SRC_EXTS = (".svg", ".fig", ".dia", ".drawio", ".ipe", ".gp")
+FIG_OUT_EXTS = (".png", ".pdf", ".eps", ".jpg", ".jpeg", ".tif", ".tiff")
+# A script or Makefile that regenerates the figures is proof of a derivation chain
+# even when the produced file is not checked in next to its source.
+GEN_HINT = re.compile(r"(mkplot|mkfig|mkimage|makefig|makeplot|plot.*\.sh|fig.*\.sh)", re.I)
 OUT_DIRS = ("dist", "build", "output", "out", "release")
 DOC_NAMES = ("paper.md", "draft.md", "manuscript.md", "report.md")
 # files evidgate itself (or common project furniture) writes; never "documents to audit"
@@ -68,13 +74,29 @@ def probe(root: str = ".") -> Dict[str, object]:
     # Only a shared basename proves a derivative relationship (a.svg -> a.png).
     # A tree with unrelated svgs and pngs has nothing for the figures pack to guard:
     # it would go green on an empty check set, which is worse than saying nothing.
-    paired = (_stems(root, ".svg") & (_stems(root, ".png") | _stems(root, ".pdf")))
-    if svg and (png or pdf) and paired:
+    src_stems = set()
+    for ext in FIG_SRC_EXTS:
+        src_stems |= _stems(root, ext)
+    out_stems = set()
+    for ext in FIG_OUT_EXTS:
+        out_stems |= _stems(root, ext)
+    paired = src_stems & out_stems
+    gen_scripts = [f for f in entries if GEN_HINT.search(f)]
+    has_makefile = any(f.lower() in ("makefile", "makefile.am") for f in entries)
+    # Two independent ways to see a derivation chain:
+    #   1. same basename in a source format and an output format (a.svg -> a.png)
+    #   2. a figure-generating script or Makefile plus outputs on disk
+    chained = bool(paired) or bool(gen_scripts) or (has_makefile and out_stems)
+    if (src_stems or gen_scripts) and out_stems and chained:
         where = next((n for n in FIG_DIRS if os.path.isdir(os.path.join(root, n))), ".")
+        outs = sum(_count(root, e) for e in FIG_OUT_EXTS)
+        proof = (f"{len(paired)} 组同名" if paired
+                 else ("生成脚本 " + "、".join(gen_scripts[:2]) if gen_scripts
+                       else ("Makefile" if has_makefile else "输出文件")))
         findings.append(Finding(
-            what=f"{where} 一带：{svg} 个 svg、{png} 个 png、{pdf} 个 pdf，其中 {len(paired)} 组同名",
+            what=f"{where} 一带：{outs} 个位图/PDF 输出，派生依据：{proof}",
             packs=["figures"],
-            note=f"同名即派生（如 {sorted(paired)[0]}.svg → {sorted(paired)[0]}.png）—— figures 包要盯的就是这个"))
+            note="有源就有派生链 —— figures 包盯的是「派生是不是跟着源更新」"))
         packs.append("figures")
 
     # 2. build output directories

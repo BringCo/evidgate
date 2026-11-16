@@ -1,5 +1,12 @@
 # pack: figures — 一个源、多种派生的产物目录（svg -> png/pdf/eps）
 checks:
+  - cid: GF0
+    name: 清单里至少有一条派生项（{manifest}）
+    method: builtin:artifact:derivatives {manifest}
+    expect: exit:0
+    counter: 把 artifacts.json 里所有 role 改成 source 后，本项必须变红
+    severity: red
+    note: 没有派生项时，后三项全在空转 —— 先标注谁是派生
   - cid: GF1
     name: 派生登记齐全且未被手改（{manifest}）
     method: builtin:artifact:manifest {manifest}

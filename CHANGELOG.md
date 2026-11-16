@@ -2,6 +2,42 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.9.0 — 2026-11-16
+
+### Found by running against personal deliverables, not polished projects
+Four repositories from the second batch (`nmbader/phd_thesis`,
+`robstewart57/phd-thesis`, `astroHaoPeng/FiguresInMyPhdThesis`, `megrxu/zjureport`).
+The first eight repos produced zero findings; these four produced three real defects.
+
+**1. `artifact-init` crashed on an Emacs lock file.**
+`robstewart57/phd-thesis` contains `results/scripts/.#plot-scaleup.R` — a dangling
+symlink — and the scan died with `FileNotFoundError`, producing no manifest at all.
+Now: `.#*` entries are skipped as editor locks, symlinks and dangling links are skipped,
+and a single unreadable file no longer aborts the scan (it is counted and reported).
+
+**2. The `figures` pack reported 3 PASS over a manifest of 172 sources.**
+With no derivative registered, `manifest`, `stale` and `orphan` have nothing to compare,
+so all three came back clean and the summary read `coverage 4/4 · 100%`. That is a false
+green of the same family as the Windows `grep` one: not "the check is wrong" but "the
+check had no object". New `builtin:artifact:derivatives` and a `GF0` check in the pack:
+
+```
+GF0 FAIL(红)  清单里至少有一条派生项  ─  没有任何派生项：172 条全部是 source
+RELEASE BLOCKED  blocked by GF0
+```
+
+**3. `suggest` could not see the derivation chain in a real thesis repo.**
+It only recognised SVG. `robstewart57/phd-thesis` builds its figures with `mkImages.sh`
+and `mkPlots.sh` from `.fig`/`.dia`/`.dat`/`.Rdata`. Recognised now by two independent
+signals: a shared basename across a source/output extension pair
+(`.svg .fig .dia .drawio .ipe .gp` → `.png .pdf .eps .jpg .tif`), or a figure-generating
+script / Makefile plus outputs on disk. That repo now gets `packs: figures`; a tree with
+neither still gets nothing.
+
+### Compatibility
+All four bundled examples unchanged (`6/6 · 7/7 · 4/4 · 3/3`), except `examples/figures`
+which uses a hand-written config and keeps its original three checks.
+
 ## 0.8.1 — 2026-11-16
 
 ### Fixed from a horizontal run over eight real repositories

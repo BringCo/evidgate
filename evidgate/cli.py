@@ -183,19 +183,31 @@ def cmd_artifact_init(a) -> int:
     out = os.path.join(d, a.out)
     if os.path.exists(out) and not a.force:
         sys.exit(f"{out} exists (use --force to overwrite)")
-    items = []
+    items, skipped = [], []
     for dp, dn, fn in os.walk(d):
         dn[:] = [x for x in dn if x not in art.SKIP_DIRS]
         for f in fn:
-            if f in art.SKIP_FILES or f == a.out:
+            if f in art.SKIP_FILES or f == a.out or f.startswith(".#"):
+                # ".#x" is an Emacs lock (usually a dangling symlink); it is not an artifact
                 continue
             full = os.path.join(dp, f)
             rel = os.path.relpath(full, d).replace(os.sep, "/")
-            items.append({"path": rel, "role": "source", "md5": art._md5(full)})
+            if os.path.islink(full) or not os.path.isfile(full):
+                skipped.append(rel)
+                continue
+            try:
+                digest = art._md5(full)
+            except OSError:
+                # one unreadable file must not abort the whole scan
+                skipped.append(rel)
+                continue
+            items.append({"path": rel, "role": "source", "md5": digest})
     with open(out, "w", encoding="utf-8", newline="\n") as fh:
         json.dump({"root": ".", "items": items}, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
     print(f"wrote {out} ({len(items)} files, all role=source)")
+    if skipped:
+        print(f"  skipped {len(skipped)} unreadable/link entries (e.g. {skipped[0]})")
     print("next: 把派生文件改成 role=derivative 并填 source；手改过的副本加 same_as_source: true")
     return 0
 

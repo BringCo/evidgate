@@ -48,7 +48,7 @@ SKIP_DIRS = {".git", "__pycache__", "node_modules", ".artifacts", ".venv", ".ide
 # the gate's own config/output is not a deliverable, so it never counts as "unregistered"
 SKIP_FILES = {"evidgate.yaml", "evidgate_ledger.md", "gate_report.md"}
 
-RULES = ("manifest", "stale", "orphan", "sync")
+RULES = ("manifest", "stale", "orphan", "sync", "derivatives")
 
 
 def _md5(path: str, normalize_newlines: bool = False) -> str:
@@ -250,6 +250,23 @@ def _split_args(argv: List[str]) -> Tuple[str, Dict[str, str]]:
     return (positional[0] if positional else ""), opts
 
 
+def rule_derivatives(manifest_path: str) -> List[str]:
+    """A manifest with no derivatives has nothing for the figures pack to guard.
+
+    Without this, `manifest`/`stale`/`orphan` all report clean over a list of 172
+    sources and the user reads "3 PASS" as "my figures are in order".
+    """
+    _root, items, _ignore = _load(manifest_path)
+    # same structural test as rule_manifest: a declared `source`, or `same_as_source`,
+    # makes an entry a derivative. `role` alone is a label and can be missing.
+    deriv = [i for i in items if i.get("source") or i.get("same_as_source")]
+    if deriv:
+        return []
+    return [f"没有任何派生项：{len(items)} 条全部是 source。"
+            f"把生成的图改成 \"role\": \"derivative\" 并填 \"source\"，"
+            f"否则 manifest/stale/orphan 三项都在空转"]
+
+
 def run(rule: str, argv: List[str]) -> int:
     if rule not in RULES:
         print(f"unknown artifact rule {rule!r} (have: {RULES})")
@@ -267,9 +284,10 @@ def run(rule: str, argv: List[str]) -> int:
         hits = rule_orphan(path, opts.get("dir", "."))
         code = red[False]
     else:
-        fn = {"manifest": rule_manifest, "stale": rule_stale, "sync": rule_sync}[rule]
+        fn = {"manifest": rule_manifest, "stale": rule_stale, "sync": rule_sync,
+              "derivatives": rule_derivatives}[rule]
         hits = fn(path)
-        code = red[rule in ("manifest", "sync")]
+        code = red[rule in ("manifest", "sync", "derivatives")]
 
     if not hits:
         print(f"[{rule}] clean")
