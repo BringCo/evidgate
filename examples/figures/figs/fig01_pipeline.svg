@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="90" viewBox="0 0 320 90">
+<rect x="4" y="20" width="90" height="50" rx="6" fill="#e8f0fe" stroke="#4a6fa5"/>
+<text x="49" y="50" font-size="12" text-anchor="middle">collect</text>
+<line x1="94" y1="45" x2="124" y2="45" stroke="#4a6fa5" stroke-width="2"/>
+<rect x="124" y="20" width="90" height="50" rx="6" fill="#e6f4ea" stroke="#2f7a4f"/>
+<text x="169" y="50" font-size="12" text-anchor="middle">estimate</text>
+<line x1="214" y1="45" x2="244" y2="45" stroke="#2f7a4f" stroke-width="2"/>
+<rect x="244" y="20" width="72" height="50" rx="6" fill="#fdecec" stroke="#a83232"/>
+<text x="280" y="50" font-size="12" text-anchor="middle">report</text>
+</svg>

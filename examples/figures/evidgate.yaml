@@ -1,0 +1,27 @@
+# evidgate · figure pipeline (fictional example)
+# One source (SVG) -> three derivatives (PNG / PDF / EPS), the shape every
+# figure directory ends up with. All figures here are generated, not real assets.
+project: figure-pipeline (fictional)
+ledger: evidgate_ledger.md
+
+checks:
+  - cid: F1
+    name: 登记图形齐全且派生未被手改
+    method: builtin:artifact:manifest artifacts.json
+    expect: exit:0
+    counter: 手改 pdf/fig01_pipeline.pdf，本项必须变红（示例里就是这样）
+    severity: red
+
+  - cid: F2
+    name: 派生是否跟随源（盖章后才可判定）
+    method: builtin:artifact:stale artifacts.json
+    expect: exit:0
+    counter: fig02 三个派生从未盖章 → 报「无法判断」；fig03 盖过章但源改过 → 报「源已变」
+    severity: yellow
+
+  - cid: F3
+    name: 产物目录里没有漏纳管的文件
+    method: builtin:artifact:orphan artifacts.json --dir png
+    expect: exit:0
+    counter: png/ 里放一个未登记的草稿图，本项必须变黄（示例里 fig04_draft.png 就是）
+    severity: yellow

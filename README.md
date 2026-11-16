@@ -239,6 +239,11 @@ Both are **fictional**; every defect is planted on purpose.
   Run: `./bin/evidgate run --dir examples/mixed`
 - `examples/` — a Chinese draft, six checks, 2 PASS / 2 DIFF / 2 FAIL.
   Run: `cd examples && ../bin/evidgate run --dir .`
+- `examples/figures/` — the real shape of a figure directory: **one SVG source, three
+  derivatives** (png/pdf/eps). It shows all three `stale` verdicts side by side: stamped
+  and clean, never stamped ("cannot tell"), stamped but the source moved on. Figures are
+  generated, not real assets.
+  Run: `./bin/evidgate run --dir examples/figures`
 
 Mutation demo:
 

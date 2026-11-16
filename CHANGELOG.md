@@ -2,6 +2,14 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.5.1 — 2026-11-16
+
+### Added
+- `examples/figures/` — one SVG source with three derivatives (png/pdf/eps), the layout
+  every figure directory ends up with. It demonstrates all three `stale` verdicts in one
+  run: stamped and clean, never stamped ("cannot tell"), and stamped-then-source-edited
+  ("source moved on"). Figures are generated programmatically, not real assets.
+
 ## 0.5.0 — 2026-11-16
 
 ### Changed (prose rules re-calibrated on a real manuscript)

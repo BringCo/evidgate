@@ -1,0 +1,77 @@
+{
+  "root": ".",
+  "ignore": [
+    "*.log"
+  ],
+  "items": [
+    {
+      "path": "figs/fig01_pipeline.svg",
+      "role": "source"
+    },
+    {
+      "path": "figs/fig02_bars.svg",
+      "role": "source"
+    },
+    {
+      "path": "figs/fig03_timeline.svg",
+      "role": "source"
+    },
+    {
+      "path": "png/fig01_pipeline.png",
+      "role": "derivative",
+      "source": "figs/fig01_pipeline.svg",
+      "md5": "1457db3fd3c886fcb0988f6e1be078d1",
+      "source_md5": "fbd8b9f04a1e991a0261186cdce8adc6"
+    },
+    {
+      "path": "pdf/fig01_pipeline.pdf",
+      "role": "derivative",
+      "source": "figs/fig01_pipeline.svg",
+      "md5": "00000000000000000000000000000000",
+      "source_md5": "fbd8b9f04a1e991a0261186cdce8adc6"
+    },
+    {
+      "path": "eps/fig01_pipeline.eps",
+      "role": "derivative",
+      "source": "figs/fig01_pipeline.svg",
+      "md5": "57896582c604a080ac56dd3d216f79ab",
+      "source_md5": "fbd8b9f04a1e991a0261186cdce8adc6"
+    },
+    {
+      "path": "png/fig02_bars.png",
+      "role": "derivative",
+      "source": "figs/fig02_bars.svg"
+    },
+    {
+      "path": "pdf/fig02_bars.pdf",
+      "role": "derivative",
+      "source": "figs/fig02_bars.svg"
+    },
+    {
+      "path": "eps/fig02_bars.eps",
+      "role": "derivative",
+      "source": "figs/fig02_bars.svg"
+    },
+    {
+      "path": "png/fig03_timeline.png",
+      "role": "derivative",
+      "source": "figs/fig03_timeline.svg",
+      "md5": "1457db3fd3c886fcb0988f6e1be078d1",
+      "source_md5": "ee94b6767e897503b7dede9e71d29c72"
+    },
+    {
+      "path": "pdf/fig03_timeline.pdf",
+      "role": "derivative",
+      "source": "figs/fig03_timeline.svg",
+      "md5": "1b42f1ef8ab67dfc73630069bc22dc17",
+      "source_md5": "ee94b6767e897503b7dede9e71d29c72"
+    },
+    {
+      "path": "eps/fig03_timeline.eps",
+      "role": "derivative",
+      "source": "figs/fig03_timeline.svg",
+      "md5": "a1111d3a1013d5d6d97229ed1347688d",
+      "source_md5": "ee94b6767e897503b7dede9e71d29c72"
+    }
+  ]
+}
