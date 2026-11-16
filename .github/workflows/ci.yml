@@ -3,6 +3,10 @@ name: ci
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -25,7 +29,7 @@ jobs:
       - name: every example blocks as designed (exit 1 is the expected result)
         run: |
           set +e
-          for d in examples examples/mixed examples/artifact; do
+          for d in examples examples/mixed examples/artifact examples/figures; do
             out="/tmp/$(basename "$d").txt"
             ./bin/evidgate run --dir "$d" > "$out" 2>&1
             rc=$?
@@ -38,7 +42,7 @@ jobs:
 
       - name: doctor is green on every example
         run: |
-          for d in examples examples/mixed examples/artifact; do
+          for d in examples examples/mixed examples/artifact examples/figures; do
             ./bin/evidgate doctor --dir "$d"
           done
 
