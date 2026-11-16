@@ -64,7 +64,8 @@ git clone https://github.com/BringCo/evidgate && cd evidgate
 pip install evidgate
 ```
 
-Python ≥ 3.9, no third-party dependencies. PyYAML is used when present; a built-in
+Python 3.9+; CI runs the suite on 3.9 and 3.12 (developed and exercised on 3.12/3.14).
+No third-party dependencies. PyYAML is used when present; a built-in
 parser covers the examples otherwise.
 
 ### 30 seconds, on your own project
