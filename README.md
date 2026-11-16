@@ -1,9 +1,75 @@
 # evidgate
 
-**Release gates for whatever you hand over.** A check is a command plus an assertion
-plus a declared way to fail. One ledger line holds the check, its proof, its resume
-point and its release decision — whether the thing being checked is a paragraph, a
-produced file, or the code that produced it.
+[![PyPI](https://img.shields.io/pypi/v/evidgate.svg)](https://pypi.org/project/evidgate/)
+[![Python](https://img.shields.io/pypi/pyversions/evidgate.svg)](https://pypi.org/project/evidgate/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/BringCo/evidgate/actions/workflows/ci.yml/badge.svg)](https://github.com/BringCo/evidgate/actions/workflows/ci.yml)
+
+**A command-line tool that turns a deliverable's claims into checks — and refuses to
+load a check that cannot go red.**
+
+It does not judge whether the content is right. It judges whether the evidence you claim
+for it is real, still there, and reproducible, then writes that judgement into one ledger
+you can hand to somebody else.
+
+One ledger line = one check = the command that ran = the exit code it produced = the
+point where you resume = the decision to release or block. The thing being checked can
+be a paragraph, a produced file, or the code that produced it.
+
+## The failure this exists to catch
+
+A check that reports green for the wrong reason is worse than no check: you stop
+looking. Three shapes of that, all encountered while building this:
+
+**1. The command never ran.** On Windows there is no `grep`. Running a missing command
+exits `1` — and `exit:1` is exactly how you assert "grep found nothing". So a check that
+never executed reported PASS, indefinitely. evidgate now tells "the command did not run"
+apart from "the command ran and returned this code"; only the second can pass.
+
+**2. The check had nothing to check.** A 172-file manifest where every entry was a
+source made the `figures` pack report **3 PASS with 100% coverage**: with no derivative
+there is nothing to compare, so every rule held vacuously. There is now a `GF0` check
+whose only job is to fail when a manifest contains no derivative at all.
+
+**3. Nobody ever asked the check to fail.** This one is silent by construction: a rule
+written straight into CI and never run against a broken version is an untested rule.
+So `counter` — *how does this check go red* — is a required field, and a check without
+it is refused at load time, not at run time.
+
+None of these are exotic. They are what a check does when nobody asks it to prove it can
+fail.
+
+## How it differs
+
+| | typical linter | checklist (human) | evidgate |
+|---|---|---|---|
+| Who decides pass | the rule | a person ticking a box | the command + its exit code |
+| What proves it | nothing | nothing | command, exit code, output tail, artifact hash, timestamp |
+| If the rule silently stops working | silent | silent | `evidgate mutate` reports "detection 1/1" or "NOT caught" |
+| Where "what is left" lives | nowhere | another sheet | the same ledger line |
+| Can a rule exist with no way to fail | yes | yes | **refused at load time** |
+
+That last row is the whole design: `counter` is a required field, so
+**a gate that cannot fail is not a gate, it is a wish.**
+
+## 30 seconds
+
+```bash
+pip install evidgate
+cd <your project>
+evidgate init --dir .        # writes evidgate.yaml; picks a file that actually exists
+evidgate doctor --dir .      # yaml parseable? every command resolvable? — before blaming the project
+evidgate run --dir .         # ledger + verdicts; exit 1 = blocked
+
+# straight from a clone, no install needed (stdlib only):
+./bin/evidgate --version
+```
+
+If `doctor` prints `BAD`, fix that first — the most common failure is a `method` whose
+command is not on `PATH`, or a `method` that needs `shell:` and does not declare it.
+Checks written by this tool use `builtin:` and run in-process, so they cannot hit either.
+
+Running the bundled three-domain example:
 
 ```console
 $ evidgate run --dir examples/mixed
@@ -21,8 +87,43 @@ RELEASE BLOCKED  blocked by D1, A2
 note: PASS 表示「证据存在且可复现」，不表示数值本身正确。
 ```
 
+The example deliberately mixes Chinese check names with English output: the shipped
+`prose` rules target Chinese drafts, and one ledger holds either language.
+
 Red blocks the release. Yellow goes to a confirmation list. **待补 is never "done".**
 Exit code 1 means blocked — a non-zero run cannot be reported as a pass.
+
+## What it finds on real things
+
+| target | size | result |
+|---|---|---|
+| Mature open-source repos | 8 | **0 findings** |
+| Personal deliverable repos | 4 | **3 real defects** |
+| A real paper draft | 581 sentences | 222 findings before calibration → **32** |
+
+The zero is the boundary, not a weakness: mature projects do not commit credentials or
+leave `.bak` files behind. The three defects in the personal repos were a crash on a
+broken symlink, the vacuous-green manifest above, and a `suggest` that could not see
+`.fig`/`.dia`/`.dat` as figure sources. This tool is for **the last look before you hand
+something over**, not for auditing somebody else's mature repository.
+
+## Who this is for
+
+- You are about to hand a draft, a report, an application package or a build directory to
+  someone who will ask "where did this number come from?"
+- You work across several windows or agents, and "done" from another context is a claim
+  you would like to check rather than trust.
+- You already run tests and linters, and you have noticed that none of them leave a
+  record of *what was verified, with which command, when*.
+
+## Who it is not for
+
+- **Content correctness** — whether the number is right or the argument holds. It does
+  not do that and will not.
+- **Typography, terminology, AI-tone linting** — [Vale](https://vale.sh/) and
+  `deliverable-qa` have far more rules for that.
+- **Auditing mature repositories** — expect zero findings.
+- **Approval workflows** — no roles, no multi-user sign-off; this is a single-user CLI.
 
 ## One ledger, several domains
 
@@ -41,62 +142,6 @@ is a legitimate expectation. Anything with a deterministic exit code is checkabl
 
 Add your own domain without touching `core/`: write a script that exits 0 / 2 / 3 and
 declare it as a check. That is the whole plugin contract.
-
-## Why this is not another linter
-
-| | typical linter | checklist (human) | evidgate |
-|---|---|---|---|
-| Who decides pass | the rule | a person ticking a box | the command + its exit code |
-| What proves it | nothing | nothing | command, exit code, output tail, artifact hash, timestamp |
-| If the rule silently stops working | silent | silent | `evidgate mutate` reports "detection 1/1" or "NOT caught" |
-| Where "what is left" lives | nowhere | another sheet | the same ledger line |
-| Can a rule exist with no way to fail | yes | yes | **refused at load time** |
-
-That last row is the design constraint: `counter` (how this check goes red) is a
-required field. A gate that cannot fail is not a gate, it is a wish.
-
-## Install
-
-```bash
-git clone https://github.com/BringCo/evidgate && cd evidgate
-./bin/evidgate --version        # zero-install entry point, stdlib only
-
-# or as a package
-pip install evidgate
-```
-
-Python 3.9+; CI runs the suite on 3.9, 3.12, 3.13 and 3.14 (3.14 is allowed to fail while its runner image settles).
-No third-party dependencies. PyYAML is used when present; a built-in
-parser covers the examples otherwise.
-
-### 30 seconds, on your own project
-
-```bash
-evidgate init --dir .          # writes evidgate.yaml; picks a file that actually exists
-evidgate prose-init --dir . --file draft.md   # optional: the Chinese prose checks
-evidgate doctor --dir .        # yaml parseable? every command resolvable? — before blaming the project
-evidgate run --dir .           # ledger + verdicts; exit 1 = blocked
-```
-
-If `doctor` prints `BAD`, fix that first — the most common failure is a `method` whose
-command is not on `PATH`. Checks written by this tool use `builtin:` and run in-process,
-so they cannot hit that.
-
-## Commands
-
-```bash
-evidgate init --dir <proj>                       # starter evidgate.yaml
-evidgate doctor --dir <proj>                     # yaml + command resolvability, before you blame the project
-evidgate run --dir <proj> [--only C1,P2]         # run + rebuild the ledger; exit 1 = blocked
-evidgate resume --dir <proj>                     # rerun only unresolved checks
-evidgate report --dir <proj>                     # gate_report.md: table, yellows, unverified, verdict
-evidgate mutate --baseline A --mutant B [--only C1]   # does the check actually go red?
-evidgate prose-init --dir <proj> --file <draft>  # append the Chinese prose checks (P1..P5)
-evidgate artifact-init --dir <proj>              # scan a directory into a first-draft artifacts.json
-evidgate artifact-update --dir <proj>            # recompute an artifact's own md5 (never source_md5)
-evidgate artifact-stamp --dir <proj> --path P    # after regenerating: record the source hash
-evidgate prose scan --file <draft> --rule absolutes   # one rule, standalone
-```
 
 ## Writing a check
 
@@ -138,9 +183,27 @@ An assertion that needs stdout (`contains` / `regex` / `lines`) fails the eviden
 self-check if the command printed nothing — a `not_contains` on empty output would
 otherwise be a tautology.
 
+## Commands
+
+```bash
+evidgate init --dir <proj>                       # starter evidgate.yaml
+evidgate suggest --dir <proj> [--write]          # read the disk, name the pack that applies
+evidgate doctor --dir <proj>                     # yaml + command resolvability, before you blame the project
+evidgate run --dir <proj> [--only C1,P2]         # run + rebuild the ledger; exit 1 = blocked
+evidgate resume --dir <proj>                     # rerun only unresolved checks
+evidgate report --dir <proj>                     # gate_report.md: table, yellows, unverified, verdict
+evidgate mutate --dir <proj> --baseline A --mutant B [--only C1]   # does the check actually go red?
+evidgate prose-init --dir <proj> --file <draft>  # append the Chinese prose checks (P1..P5)
+evidgate artifact-init --dir <proj> --out artifacts.json   # scan a directory into a manifest
+evidgate artifact-update --dir <proj>            # recompute an artifact's own md5 (never source_md5)
+evidgate artifact-stamp --dir <proj> --path P    # after regenerating: record the source hash
+evidgate prose scan --file <draft> --rule absolutes   # one rule, standalone
+evidgate pack [list|show <name>]                 # what a pack expands to
+```
+
 ## Plugin: artifact (manifest-driven)
 
-Four checks derived from three rules that govern content assets: one asset has one
+Five checks derived from three rules that govern content assets: one asset has one
 source; a derivative is regenerated, never hand-edited; registering at creation time is
 cheap. Everything is decidable from a manifest, so nothing is guessed.
 
@@ -158,6 +221,7 @@ evidgate artifact-init --dir .        # scans into artifacts.json (all role=sour
 
 | rule | asks | red/yellow |
 |---|---|---|
+| `derivatives` | does the manifest contain at least one derivative at all? (with none, every other rule is vacuous) | red |
 | `manifest` | is every registered file still present, and does a **derivative's** recorded md5 still match? | red |
 | `stale` | did the source change since this derivative was generated? (compared by hash, not mtime) | yellow |
 | `sync` | does a `same_as_source` derivative still equal its source? | red |
@@ -206,7 +270,7 @@ mtime heuristic had called 10 of them stale, but that verdict was itself unrelia
 | rule | what fires (after calibration) |
 |---|---|
 | `denominator` | sentence count of the body — info only, makes coverage countable |
-| `absolutes` | **`本文/我们` + 首次/首创/率先**, or **首次/首创 + 提出/实现/证明/引入/建立** — and no search date. Descriptive uses (`首次跌破`, `唯一缺口为负者`) do not fire |
+| `absolutes` | **`本文/我们` + 首次/首创/率先**, or **首次/首创 + 提出/实现/证明/引入/建立** — and no search date. Descriptive uses ("the metric first fell below X", "the only negative gap") do not fire |
 | `uncited` | claim verbs (表明/说明/证明/意味着/取决于) with **no** citation, chart, §-reference, statistic or measured marker |
 | `numeral_scope` | a bare number (ρ / R² / 倍 / % / 降低 N) with no `n=`, `m/m`, `p=`, ±, 口径/协议/脚本/路径 nearby |
 | `citation_chain` | `[n]` in the body missing from the bibliography, and listed-but-never-cited entries |
@@ -242,7 +306,7 @@ only way the same check means the same thing on every platform.
 - cid: C3
   method: grep -rn TODO src/       # split into argv, executed directly
   expect: exit:1
-  ```
+```
 
 If the command needs pipes, redirection, `$()` or `&&`, say so:
 
@@ -255,7 +319,8 @@ If the command needs pipes, redirection, `$()` or `&&`, say so:
 Boundaries, stated plainly:
 
 - Without `shell:`, a command that needs shell syntax fails with a message telling you
-  to add `shell: bash` — it does not silently pick a shell for you.
+  to add `shell: bash` — it does not silently pick a shell for you. `doctor` reports the
+  omission as `BAD` before you run anything.
 - `shell: bash` on Windows looks for **Git Bash** in its standard install locations.
   It deliberately does **not** use `bash` from `PATH`, because there that name resolves
   to `C:\Windows\System32\bash.exe` — the WSL entry point, which uses `/mnt/e/...`
@@ -265,11 +330,10 @@ Boundaries, stated plainly:
 
 ### Windows
 
-Checks run through `bash -lc` on POSIX and `cmd /c` on Windows. Everything that ships
-as `builtin:` (all of `packs/figures`) works on both. Anything written as a shell
-command (`grep`, `test -d`, `$(...)`) needs a POSIX shell.
+Everything that ships as `builtin:` (all of `packs/figures`) works on both platforms.
+Anything written as a shell command (`grep`, `test -d`, `$(...)`) needs a POSIX shell.
 
-If a command is not found at all, evidgate now says so and fails the check rather than
+If a command is not found at all, evidgate says so and fails the check rather than
 accepting the exit code — because on Windows a missing `grep` exits `1`, which is
 exactly what `expect: exit:1` ("grep found nothing") looks for. That was a real silent
 false green.
@@ -307,8 +371,8 @@ ledger: evidgate_ledger.md
 packs: figures
 ```
 
-That is a complete config. `evidgate run` expands it into three real checks
-(manifest / stale / orphan) and blocks on the red one.
+That is a complete config. `evidgate run` expands it into the pack's checks
+(derivatives / manifest / stale / orphan) and blocks on the red one.
 
 | pack | what it adds |
 |---|---|
@@ -351,12 +415,18 @@ Mutation demo:
 
 ## Scope
 
-- **Does not** verify that a reference exists or says what you claim — use
-  [refchecker](https://github.com/markrussinovich/refchecker) or similar for that.
-- **Does not** detect AI-generated text.
-- **Does** check that the evidence you claim for your own statements, numbers and
-  artifacts is real, reproducible and recorded — in whatever domain your command
-  can observe.
+**Does not** verify that a reference exists or says what you claim — use
+[refchecker](https://github.com/markrussinovich/refchecker) or similar for that.
+**Does not** detect AI-generated text, judge typography, or decide whether a number is
+correct.
+**Does** check that the evidence you claim for your own statements, numbers and
+artifacts is real, reproducible and recorded — in whatever domain your command
+can observe.
+
+`prose` is a writing prompt, not a proofreader. Measured honestly: of 22 problems found
+by reading a draft by hand, and 26 reported by the rules, the overlap was small. It
+tells you a sentence looks like it skipped a scope; it cannot tell you the number is
+wrong.
 
 ## Attribution
 
