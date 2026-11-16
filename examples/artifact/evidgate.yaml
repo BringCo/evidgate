@@ -28,8 +28,8 @@ checks:
     severity: red
 
   - cid: A4
-    name: 没有漏纳管的文件
-    method: builtin:artifact:orphan artifacts.json --dir .
+    name: 产物目录里没有漏纳管的文件
+    method: builtin:artifact:orphan artifacts.json --dir build
     expect: exit:0
-    counter: 新建一个未登记文件，本项必须变黄（示例里 notes.txt 就是）
+    counter: 在 build/ 里新建未登记文件，本项必须变黄（示例里 notes.txt 就是）
     severity: yellow

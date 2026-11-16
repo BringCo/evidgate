@@ -156,10 +156,10 @@ evidgate artifact-init --dir .        # scans into artifacts.json (all role=sour
 
 | rule | asks | red/yellow |
 |---|---|---|
-| `manifest` | is every registered file still present, and does a recorded md5 still match? | red |
+| `manifest` | is every registered file still present, and does a **derivative's** recorded md5 still match? | red |
 | `stale` | did the source change since this derivative was generated? (compared by hash, not mtime) | yellow |
 | `sync` | does a `same_as_source` derivative still equal its source? | red |
-| `orphan` | is there a file on disk the manifest never registered? | yellow |
+| `orphan` | is there a file in the scanned directory the manifest never registered? | yellow |
 
 The gate's own files (`evidgate.yaml`, `evidgate_ledger.md`, `gate_report.md`) never
 count as orphans — they are configuration and output, not deliverables.
@@ -168,6 +168,12 @@ count as orphans — they are configuration and output, not deliverables.
 times. An earlier version used mtime and was wrong: `git clone`, unzip and `rsync` all
 stamp "now", so the same example reported `1 PASS / 2 DIFF` in a working tree and
 `2 PASS / 1 DIFF` after a clone. Hash comparison gives the same verdict in both.
+
+**Point `orphan` at the artifact directory, not the repo root.** Measured on a real
+17k-file project: scanning the root reported 6002 "unregistered" files (sources, docs,
+`.bak` copies) — true but useless. Scanning only `build/` is the intended use. Cost:
+2062 files took 0.01 s on ext4 but 40 s for 17k files across a WSL `/mnt/c` mount, so
+width matters more than count on a mounted drive.
 
 Files you never want registered (build logs, temp files) go in the manifest's `ignore`
 list, matched with shell globs:

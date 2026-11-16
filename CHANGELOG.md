@@ -2,6 +2,17 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.3.1 — 2026-11-16
+
+### Fixed (found by running the rules on a real project, not the example)
+- `artifact:manifest` no longer hash-checks `source` entries. Editing a source is the
+  normal workflow; failing the gate for it made the check unusable. Only derivatives are
+  guarded, and `stale` is what notices that they are now out of date.
+- `artifact:orphan` precompiles its globs and caps its printed output at 30 lines.
+- `orphan` on a repository root is documented against: a real 17k-file project reported
+  6002 unregistered files, and 17k files took 40 s across a WSL `/mnt/c` mount versus
+  0.01 s for 2k files on ext4.
+
 ## 0.3.0 — 2026-11-16
 
 ### Changed (behaviour)

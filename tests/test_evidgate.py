@@ -378,3 +378,54 @@ class TestArtifactStaleByHash(unittest.TestCase):
             ev = collect("builtin:artifact:orphan artifacts.json --dir .", cwd=d)
         self.assertNotIn("debug.log", ev.stdout)
         self.assertIn("real.txt", ev.stdout)
+
+
+class TestManifestOnlyHashesDerivatives(unittest.TestCase):
+    """Editing a source is the normal workflow; only derivatives are guarded by hash."""
+
+    def test_editing_a_source_does_not_trip_manifest(self):
+        import hashlib
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            sp = os.path.join(d, "s.md")
+            with open(sp, "w", encoding="utf-8") as fh:
+                fh.write("v1\n")
+            with open(sp, "rb") as fh:
+                src_md5 = hashlib.md5(fh.read()).hexdigest()
+            with open(os.path.join(d, "out.txt"), "w", encoding="utf-8") as fh:
+                fh.write("derived\n")
+            man = {"root": ".", "items": [
+                {"path": "s.md", "role": "source", "md5": src_md5},
+                {"path": "out.txt", "role": "derivative", "source": "s.md",
+                 "source_md5": src_md5},
+            ]}
+            with open(os.path.join(d, "artifacts.json"), "w", encoding="utf-8") as fh:
+                json.dump(man, fh)
+            with open(sp, "a", encoding="utf-8") as fh:
+                fh.write("v2\n")   # edit the source on purpose
+            ev_manifest = collect("builtin:artifact:manifest artifacts.json", cwd=d)
+            ev_stale = collect("builtin:artifact:stale artifacts.json", cwd=d)
+        self.assertEqual(ev_manifest.exit_code, 0, "editing a source must not fail manifest")
+        self.assertEqual(ev_stale.exit_code, 3, "but the derivative is now out of date")
+
+    def test_hand_editing_a_derivative_still_fails(self):
+        import hashlib
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "s.md"), "w", encoding="utf-8") as fh:
+                fh.write("v1\n")
+            op = os.path.join(d, "out.txt")
+            with open(op, "w", encoding="utf-8") as fh:
+                fh.write("derived\n")
+            with open(op, "rb") as fh:
+                out_md5 = hashlib.md5(fh.read()).hexdigest()
+            man = {"root": ".", "items": [
+                {"path": "out.txt", "role": "derivative", "source": "s.md", "md5": out_md5},
+            ]}
+            with open(os.path.join(d, "artifacts.json"), "w", encoding="utf-8") as fh:
+                json.dump(man, fh)
+            with open(op, "a", encoding="utf-8") as fh:
+                fh.write("hand edit\n")
+            ev = collect("builtin:artifact:manifest artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 2)
+        self.assertIn("内容变了", ev.stdout)

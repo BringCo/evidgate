@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
+import re
 import json
 import os
 from typing import Dict, List, Tuple
@@ -90,7 +91,10 @@ def rule_manifest(path: str) -> List[str]:
             hits.append(f"登记了但不存在: {rel}")
             continue
         want = it.get("md5")
-        if want:
+        # only derivatives are checked against their own recorded hash: editing a
+        # *source* is the normal workflow (and `stale` is what notices the fallout),
+        # whereas editing a derivative by hand is the thing rule 2 forbids.
+        if want and (it.get("role") == "derivative" or it.get("same_as_source")):
             got = _md5(full)
             if got != want:
                 # a pure line-ending difference is a checkout artefact, not an edit
@@ -144,6 +148,7 @@ def rule_sync(path: str) -> List[str]:
 
 def rule_orphan(path: str, scan_dir: str = ".") -> List[str]:
     root, items, ignore = _load(path)
+    patterns = [re.compile(fnmatch.translate(p)) for p in ignore]
     known = {os.path.normpath(_abs(root, it["path"])) for it in items if it.get("path")}
     known.add(os.path.normpath(os.path.abspath(path)))
     base = _abs(root, scan_dir)
@@ -155,7 +160,8 @@ def rule_orphan(path: str, scan_dir: str = ".") -> List[str]:
                 continue
             full = os.path.normpath(os.path.join(dp, f))
             rel = os.path.relpath(full, root).replace(os.sep, "/")
-            if any(fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(f, pat) for pat in ignore):
+            if patterns and (any(r.match(rel) for r in patterns)
+                             or any(r.match(f) for r in patterns)):
                 continue
             if full not in known:
                 hits.append(f"未登记(漏纳管): {rel}")
@@ -234,7 +240,10 @@ def run(rule: str, argv: List[str]) -> int:
     if not hits:
         print(f"[{rule}] clean")
         return 0
-    for h in hits:
+    limit = 30
+    for h in hits[:limit]:
         print(h)
+    if len(hits) > limit:
+        print(f"... 另有 {len(hits) - limit} 条未列出（见台账 evidence / 收窄 --dir）")
     print(f"[{rule}] {len(hits)} finding(s)  (exit {code})")
     return code
