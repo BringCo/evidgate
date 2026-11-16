@@ -12,11 +12,12 @@ Manifest (`artifacts.json`):
 
     {
       "root": ".",
+      "ignore": ["*.log", "tmp/", "*.tmp"],
       "items": [
-        {"path": "src/report.md",   "role": "source"},
-        {"path": "build/report.html", "role": "derivative", "source": "src/report.md"},
-        {"path": "build/report.pdf",  "role": "derivative", "source": "src/report.md",
-         "md5": "<recorded hash>"},
+        {"path": "src/report.md",     "role": "source"},
+        {"path": "build/report.html", "role": "derivative", "source": "src/report.md",
+         "md5": "<hash of the artifact itself>",
+         "source_md5": "<hash of the source when this derivative was generated>"},
         {"path": "draft/copy.md",     "role": "derivative", "source": "src/report.md",
          "same_as_source": true}
       ]
@@ -24,17 +25,22 @@ Manifest (`artifacts.json`):
 
 Rules and exit codes: 0 clean, 2 blocking, 3 advisory.
   manifest  every registered path exists; recorded md5 still matches      (red)
-  stale     a derivative is older than its source                         (yellow)
+  stale     the source changed after this derivative was generated        (yellow)
   orphan    a file on disk that the manifest never registered             (yellow)
   sync      same_as_source derivative differs from its source             (red)
+
+`stale` compares the recorded `source_md5` with the source's hash now. It does not use
+mtime: every writer (git clone, unzip, rsync) stamps "now", so comparing times says
+nothing about whether the source actually changed. Measured on this repo's own example,
+the mtime version flipped between 1 PASS / 2 DIFF in a working tree and 2 PASS / 1 DIFF
+after a clone; the hash version is identical in both.
 """
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import os
-import sys
-import time
 from typing import Dict, List, Tuple
 
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".artifacts", ".venv", ".idea"}
@@ -49,19 +55,22 @@ def _md5(path: str, normalize_newlines: bool = False) -> str:
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             if normalize_newlines:
-                chunk = chunk.replace(b"\r\n", b"\n")
+                chunk = chunk.replace(b"\\r\\n", b"\\n")
             h.update(chunk)
     return h.hexdigest()
 
 
-def _load(path: str) -> Tuple[str, List[dict]]:
-    with open(path, encoding="utf-8") as fh:
-        data = json.load(fh)
+def _root_of(data: dict, path: str) -> str:
     root = data.get("root", ".")
     if not os.path.isabs(root):
         root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(path)), root))
-    items = data.get("items") or []
-    return root, items
+    return root
+
+
+def _load(path: str) -> Tuple[str, List[dict], List[str]]:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    return _root_of(data, path), data.get("items") or [], data.get("ignore") or []
 
 
 def _abs(root: str, rel: str) -> str:
@@ -69,7 +78,7 @@ def _abs(root: str, rel: str) -> str:
 
 
 def rule_manifest(path: str) -> List[str]:
-    root, items = _load(path)
+    root, items, _ = _load(path)
     hits = []
     for it in items:
         rel = it.get("path")
@@ -92,25 +101,31 @@ def rule_manifest(path: str) -> List[str]:
 
 
 def rule_stale(path: str) -> List[str]:
-    root, items = _load(path)
+    """The source moved on and the derivative was not regenerated.
+
+    Decided by hash, never by mtime -- see the module docstring for why.
+    """
+    root, items, _ = _load(path)
     hits = []
     for it in items:
-        src = it.get("source")
-        rel = it.get("path")
-        if not src or not rel:
+        src, rel = it.get("source"), it.get("path")
+        if not (src and rel):
             continue
-        s, d = _abs(root, src), _abs(root, rel)
-        if not (os.path.exists(s) and os.path.exists(d)):
+        s = _abs(root, src)
+        if not os.path.exists(s):
+            hits.append(f"源不存在，派生无从核对: {rel} <- {src}")
             continue
-        if os.path.getmtime(d) < os.path.getmtime(s):
-            age = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(d)))
-            s_age = time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(s)))
-            hits.append(f"派生比源旧(需重新生成): {rel} {age} < {src} {s_age}")
+        recorded = it.get("source_md5")
+        if not recorded:
+            hits.append(f"未记录 source_md5，无法判断是否过期: {rel}（跑 artifact-update 补上）")
+            continue
+        if _md5(s) != recorded:
+            hits.append(f"源已变，派生未重新生成: {rel} <- {src}")
     return hits
 
 
 def rule_sync(path: str) -> List[str]:
-    root, items = _load(path)
+    root, items, _ = _load(path)
     hits = []
     for it in items:
         if not it.get("same_as_source"):
@@ -128,7 +143,7 @@ def rule_sync(path: str) -> List[str]:
 
 
 def rule_orphan(path: str, scan_dir: str = ".") -> List[str]:
-    root, items = _load(path)
+    root, items, ignore = _load(path)
     known = {os.path.normpath(_abs(root, it["path"])) for it in items if it.get("path")}
     known.add(os.path.normpath(os.path.abspath(path)))
     base = _abs(root, scan_dir)
@@ -139,9 +154,46 @@ def rule_orphan(path: str, scan_dir: str = ".") -> List[str]:
             if f in SKIP_FILES:
                 continue
             full = os.path.normpath(os.path.join(dp, f))
+            rel = os.path.relpath(full, root).replace(os.sep, "/")
+            if any(fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(f, pat) for pat in ignore):
+                continue
             if full not in known:
-                hits.append(f"未登记(漏纳管): {os.path.relpath(full, root)}")
+                hits.append(f"未登记(漏纳管): {rel}")
     return hits
+
+
+def refresh(path: str) -> int:
+    """Recompute every recorded hash from what is on disk. Returns how many changed.
+
+    The counterpart to `artifact-init`: after you deliberately regenerate a derivative,
+    refresh the manifest instead of editing hashes by hand.
+    """
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    root = _root_of(data, path)
+    changed = 0
+    for it in data.get("items") or []:
+        rel = it.get("path")
+        if not rel:
+            continue
+        full = _abs(root, rel)
+        if os.path.exists(full):
+            got = _md5(full)
+            if it.get("md5") != got:
+                it["md5"] = got
+                changed += 1
+        src = it.get("source")
+        if src:
+            sf = _abs(root, src)
+            if os.path.exists(sf):
+                sm = _md5(sf)
+                if it.get("source_md5") != sm:
+                    it["source_md5"] = sm
+                    changed += 1
+    with open(path, "w", encoding="utf-8", newline=chr(10)) as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fh.write(chr(10))
+    return changed
 
 
 def _split_args(argv: List[str]) -> Tuple[str, Dict[str, str]]:

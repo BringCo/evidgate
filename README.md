@@ -92,6 +92,7 @@ evidgate report --dir <proj>                     # gate_report.md: table, yellow
 evidgate mutate --baseline A --mutant B [--only C1]   # does the check actually go red?
 evidgate prose-init --dir <proj> --file <draft>  # append the Chinese prose checks (P1..P5)
 evidgate artifact-init --dir <proj>              # scan a directory into a first-draft artifacts.json
+evidgate artifact-update --dir <proj>            # recompute recorded hashes after regenerating
 evidgate prose scan --file <draft> --rule absolutes   # one rule, standalone
 ```
 
@@ -156,17 +157,30 @@ evidgate artifact-init --dir .        # scans into artifacts.json (all role=sour
 | rule | asks | red/yellow |
 |---|---|---|
 | `manifest` | is every registered file still present, and does a recorded md5 still match? | red |
-| `stale` | is a derivative older than its source (i.e. never regenerated)? | yellow |
+| `stale` | did the source change since this derivative was generated? (compared by hash, not mtime) | yellow |
 | `sync` | does a `same_as_source` derivative still equal its source? | red |
 | `orphan` | is there a file on disk the manifest never registered? | yellow |
 
 The gate's own files (`evidgate.yaml`, `evidgate_ledger.md`, `gate_report.md`) never
 count as orphans — they are configuration and output, not deliverables.
 
-**Boundary of `stale`:** it compares mtime, so it is meaningful on a working tree and
-unreliable after `git clone`, unpacking an archive, or `rsync` (all writers stamp
-"now"). Measured: the same example reports `1 PASS / 2 DIFF` in a working copy and
-`2 PASS / 1 DIFF` after a fresh clone. Use it locally; do not build a CI gate on it.
+`stale` compares the recorded `source_md5` against the source's hash now — never file
+times. An earlier version used mtime and was wrong: `git clone`, unzip and `rsync` all
+stamp "now", so the same example reported `1 PASS / 2 DIFF` in a working tree and
+`2 PASS / 1 DIFF` after a clone. Hash comparison gives the same verdict in both.
+
+Files you never want registered (build logs, temp files) go in the manifest's `ignore`
+list, matched with shell globs:
+
+```json
+{"root": ".", "ignore": ["*.log", "tmp/", "*.tmp"], "items": [...]}
+```
+
+After a deliberate regeneration, refresh the hashes instead of editing JSON:
+
+```bash
+evidgate artifact-update --dir .     # recompute md5 + source_md5
+```
 
 ## Plugin: prose (Chinese)
 

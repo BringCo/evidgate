@@ -302,3 +302,79 @@ class TestReportCoversSkip(unittest.TestCase):
         self.assertIn("待补", rep)
         # guard against the report collapsing into one line of literal \n
         self.assertGreater(rep.count("\n"), 10, "report is not multi-line")
+
+
+class TestArtifactStaleByHash(unittest.TestCase):
+    """stale must be decided by content hash, never by mtime."""
+
+    def _mk(self, d):
+        import hashlib
+        import json
+        os.makedirs(os.path.join(d, "src"))
+        os.makedirs(os.path.join(d, "build"))
+        sp = os.path.join(d, "src", "s.md")
+        with open(sp, "w", encoding="utf-8") as fh:
+            fh.write("v1\n")
+        with open(sp, "rb") as fh:
+            src_md5 = hashlib.md5(fh.read()).hexdigest()
+        with open(os.path.join(d, "build", "s.html"), "w", encoding="utf-8") as fh:
+            fh.write("generated from v1\n")
+        man = {"root": ".", "ignore": ["*.log"], "items": [
+            {"path": "src/s.md", "role": "source"},
+            {"path": "build/s.html", "role": "derivative", "source": "src/s.md",
+             "source_md5": src_md5},
+        ]}
+        with open(os.path.join(d, "artifacts.json"), "w", encoding="utf-8") as fh:
+            json.dump(man, fh)
+        return sp
+
+    def test_clean_when_source_unchanged(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._mk(d)
+            self.assertEqual(collect("builtin:artifact:stale artifacts.json", cwd=d).exit_code, 0)
+
+    def test_stale_when_source_changed_even_if_files_are_new(self):
+        with tempfile.TemporaryDirectory() as d:
+            sp = self._mk(d)
+            with open(sp, "a", encoding="utf-8") as fh:
+                fh.write("v2\n")   # newer file, but the derivative is now out of date
+            ev = collect("builtin:artifact:stale artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 3)
+        self.assertIn("源已变", ev.stdout)
+
+    def test_refresh_clears_stale(self):
+        import contextlib
+        import io
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            sp = self._mk(d)
+            with open(sp, "a", encoding="utf-8") as fh:
+                fh.write("v2\n")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["artifact-update", "--dir", d])
+            ev = collect("builtin:artifact:stale artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 0)
+
+    def test_missing_source_md5_is_reported_not_silently_passed(self):
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            self._mk(d)
+            mp = os.path.join(d, "artifacts.json")
+            with open(mp, encoding="utf-8") as fh:
+                man = json.load(fh)
+            del man["items"][1]["source_md5"]
+            with open(mp, "w", encoding="utf-8") as fh:
+                json.dump(man, fh)
+            ev = collect("builtin:artifact:stale artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 3)
+        self.assertIn("未记录 source_md5", ev.stdout)
+
+    def test_ignore_rule_silences_matching_orphans(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._mk(d)
+            for name in ("debug.log", "real.txt"):
+                with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+                    fh.write("x\n")
+            ev = collect("builtin:artifact:orphan artifacts.json --dir .", cwd=d)
+        self.assertNotIn("debug.log", ev.stdout)
+        self.assertIn("real.txt", ev.stdout)

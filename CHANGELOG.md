@@ -2,6 +2,20 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.3.0 — 2026-11-16
+
+### Changed (behaviour)
+- `artifact:stale` is now decided by the recorded `source_md5` instead of file mtime.
+  The mtime version gave different answers in a working tree and in a fresh clone
+  (measured: `1 PASS / 2 DIFF` vs `2 PASS / 1 DIFF`), so it could not be used in CI.
+  A derivative without a recorded `source_md5` now reports "cannot tell" instead of
+  silently passing.
+
+### Added
+- `ignore` list in the manifest (`["*.log", "tmp/", "*.tmp"]`, shell globs) so
+  build logs and temp files are not reported as unregistered.
+- `evidgate artifact-update` — recompute `md5` / `source_md5` after regenerating.
+
 ## 0.2.0 — 2026-11-16
 
 ### Added

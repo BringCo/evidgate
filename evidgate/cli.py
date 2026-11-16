@@ -171,6 +171,19 @@ def cmd_artifact_init(a) -> int:
     return 0
 
 
+
+def cmd_artifact_update(a) -> int:
+    """Recompute recorded hashes after a deliberate regeneration."""
+    from .plugins import artifact as art
+    out = os.path.join(a.dir, a.manifest)
+    if not os.path.exists(out):
+        sys.exit(f"{out} 不存在；先跑 artifact-init")
+    n = art.refresh(out)
+    print(f"{out}: 更新了 {n} 个哈希")
+    print("now re-run the gate: evidgate run --dir " + a.dir)
+    return 0
+
+
 def cmd_doctor(a) -> int:
     """Check the environment before blaming the project."""
     d = a.dir
@@ -342,6 +355,11 @@ def main(argv=None) -> int:
     p.add_argument("--out", default="artifacts.json")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_artifact_init)
+
+    p = sub.add_parser("artifact-update", help="recompute recorded hashes after regenerating")
+    p.add_argument("--dir", default=".")
+    p.add_argument("--manifest", default="artifacts.json")
+    p.set_defaults(fn=cmd_artifact_update)
 
     p = sub.add_parser("doctor", help="check yaml + commands before blaming the project")
     p.add_argument("--dir", default=".")

@@ -1,26 +1,33 @@
 {
   "root": ".",
+  "ignore": [
+    "*.log"
+  ],
   "items": [
     {
       "path": "src/report.md",
-      "role": "source"
+      "role": "source",
+      "md5": "91282cb367cfbf7f0c5d7f5d3c21a5e3"
     },
     {
       "path": "build/report.html",
       "role": "derivative",
       "source": "src/report.md",
-      "md5": "d2ba78e7137a19f1ba7e949ced9b7ca7"
+      "md5": "d2ba78e7137a19f1ba7e949ced9b7ca7",
+      "source_md5": "ca95d4519440cf81ca83a6024c66b703"
     },
     {
       "path": "build/report.pdf",
       "role": "derivative",
-      "source": "src/report.md"
+      "source": "src/report.md",
+      "source_md5": "ca95d4519440cf81ca83a6024c66b703"
     },
     {
       "path": "draft/copy.md",
       "role": "derivative",
       "source": "src/report.md",
-      "same_as_source": true
+      "same_as_source": true,
+      "source_md5": "ca95d4519440cf81ca83a6024c66b703"
     }
   ]
 }
