@@ -258,6 +258,16 @@ def cmd_doctor(a) -> int:
         print(f"  [BAD ] yaml 解析失败: {exc}")
         return 1
     print(f"  [OK  ] yaml 可解析 · {len(checks)} 条检查 · project={project}")
+    import shutil as _sh
+    if os.name == "nt":
+        bash = _sh.which("bash")
+        print("  [WARN] 检查项在 cmd 下执行；POSIX 命令（grep/test/$()）会报「命令未找到」")
+        if bash:
+            print(f"         本机有 bash（{bash}），但 evidgate 当前不会用它；Windows 请优先用 builtin: 检查项")
+        else:
+            print("         建议：安装 Git Bash，或把检查项换成 builtin:（build/repo 包已提供 builtin 版）")
+    else:
+        print(f"  [OK  ] shell: {'bash' if _sh.which('bash') else 'sh'}（POSIX，检查项可用 shell 语法）")
     all_ok = True
     for c in checks:
         m = c.method.strip()
@@ -383,7 +393,21 @@ def cmd_mutate(a) -> int:
     return 0 if caught == len(checks) else 1
 
 
+def _fix_console() -> None:
+    """Never die on a console that cannot encode our output.
+
+    A Chinese Windows console is GBK; printing a replacement character there raises
+    UnicodeEncodeError and kills the run halfway through the checks.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def main(argv=None) -> int:
+    _fix_console()
     ap = argparse.ArgumentParser(prog="evidgate", description="evidence gates for documents")
     ap.add_argument("--version", action="version", version=f"evidgate {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)

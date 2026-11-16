@@ -105,6 +105,13 @@ def evaluate(check: Check, ev: Evidence, cwd: str = ".") -> Tuple[str, str]:
 def run_check(check: Check, cwd: str = ".") -> Verdict:
     ev = collect(check.method, cwd=cwd, timeout=check.timeout,
                  artifacts=artifacts_in(check.expect))
+    if ev.command_not_found:
+        # The command never ran. On Windows `grep ...` exits 1, which is exactly
+        # what `expect: exit:1` ("grep found nothing") wants -- so a check can flip
+        # to green without having looked at anything.
+        hint = f" ({ev.not_found_hint})" if ev.not_found_hint else ""
+        return Verdict(check.cid, SKIP if check.optional else FAIL,
+                       f"命令未找到{hint}：检查没能执行，不能算通过", ev)
     status, detail = evaluate(check, ev, cwd=cwd)
     if check.optional and status in (FAIL, DIFF):
         return Verdict(check.cid, SKIP, "optional (未覆盖): " + detail, ev)

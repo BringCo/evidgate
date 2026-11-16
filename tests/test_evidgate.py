@@ -606,3 +606,44 @@ class TestPacks(unittest.TestCase):
         self.assertNotIn("AKIAIOSFODNN7EXAMPLE", out)
         self.assertIn("REDACTED", out)
         self.assertIn("other line", out)
+
+
+class TestMissingCommand(unittest.TestCase):
+    """A command that never ran must never produce a verdict of its own."""
+
+    def test_missing_command_with_exit1_expectation_is_red_not_green(self):
+        # The exact Windows failure: `grep` does not exist, cmd exits 1, and
+        # `expect: exit:1` means "grep found nothing" -- a silent false green.
+        from evidgate.core.check import Check
+        from evidgate.core.gate import run_check
+        c = Check(cid="X1", name="no TODO left",
+                  method="definitely_no_such_tool_xyz -rn TODO .",
+                  expect="exit:1", counter="add a TODO", severity="red")
+        v = run_check(c, cwd="/tmp")
+        self.assertEqual(v.status, "FAIL")
+        self.assertIn("命令未找到", v.detail)
+
+    def test_missing_command_on_optional_check_is_skip(self):
+        from evidgate.core.check import Check
+        from evidgate.core.gate import run_check
+        c = Check(cid="X2", name="optional tool", method="definitely_no_such_tool_xyz",
+                  expect="exit:1", counter="c", severity="red", optional=True)
+        self.assertEqual(run_check(c, cwd="/tmp").status, "SKIP")
+
+    def test_real_failure_is_not_mistaken_for_a_missing_tool(self):
+        from evidgate.core.check import Check
+        from evidgate.core.gate import run_check
+        c = Check(cid="X3", name="grep on a missing dir", severity="red",
+                  method="grep -rn TODO /tmp/no_such_dir_abc", expect="exit:2",
+                  counter="c")
+        self.assertEqual(run_check(c, cwd="/tmp").status, "PASS")
+
+    def test_missing_tool_detection_across_shells(self):
+        from evidgate.core.evidence import _decode, _missing_tool
+        gbk = _decode(b"'grep' \xb2\xbb\xca\xc7\xc4\xda\xb2\xbf\xbb\xf2\xcd\xe2\xb2\xbf\xc3\xfc\xc1\xee")
+        self.assertTrue(_missing_tool(127, "bash: grep: command not found"))
+        self.assertTrue(_missing_tool(127, "sh: 1: grep: not found"))
+        self.assertTrue(_missing_tool(1, "'grep' is not recognized as an internal or external command"))
+        self.assertTrue(_missing_tool(1, gbk), "a GBK console must be decoded before matching")
+        self.assertFalse(_missing_tool(1, ""))
+        self.assertFalse(_missing_tool(2, "grep: dist: No such file or directory"))

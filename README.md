@@ -231,6 +231,19 @@ Two conventions you should know:
 These are heuristics, not oracles — yellow is where a human should look, which is
 exactly why yellow exists.
 
+### Windows
+
+Checks run through `bash -lc` on POSIX and `cmd /c` on Windows. Everything that ships
+as `builtin:` (all of `packs/figures`) works on both. Anything written as a shell
+command (`grep`, `test -d`, `$(...)`) needs a POSIX shell.
+
+If a command is not found at all, evidgate now says so and fails the check rather than
+accepting the exit code — because on Windows a missing `grep` exits `1`, which is
+exactly what `expect: exit:1` ("grep found nothing") looks for. That was a real silent
+false green.
+
+On Windows, prefer `builtin:` checks, or run under Git Bash / WSL.
+
 ## Check packs
 
 Write one line instead of fifteen:

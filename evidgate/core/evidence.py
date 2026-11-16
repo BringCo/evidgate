@@ -31,6 +31,8 @@ class Evidence:
     seconds: float
     started_at: str
     artifacts: List[Artifact] = field(default_factory=list)
+    command_not_found: bool = False   # the command itself never ran
+    not_found_hint: str = ""
 
     def key_output(self, n: int = 3) -> str:
         lines = [l for l in self.stdout.splitlines() if l.strip()]
@@ -59,6 +61,45 @@ _SECRET = re.compile(
     r"(AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36}"
     r"|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
 )
+
+
+_NOT_FOUND = re.compile(
+    r"command not found"                      # bash/dash
+    r"|: not found"                           # sh
+    r"|is not recognized as an internal or external command"   # cmd (en)
+    r"|不是内部或外部命令"                                        # cmd (zh, GBK)
+    r"|не является внутренней",                # cmd (ru) -- harmless extra
+)
+
+
+def _missing_tool(code, stderr: str, stdout: str = "") -> bool:
+    """Did the shell fail to find the command, rather than the command failing?
+
+    Exit codes alone are not usable here: measured on Windows, the same missing
+    command yields 1, 9009 and even 0 depending on the shell wrapper. The text is
+    the reliable signal; the codes only corroborate it.
+    """
+    if code == 9009:            # cmd's dedicated "command not found"
+        return True
+    blob = (stderr or "") + "\n" + (stdout or "")
+    if _NOT_FOUND.search(blob):
+        return True
+    return code == 127 and not blob.strip().startswith("usage")
+
+
+def _decode(raw: bytes) -> str:
+    """Decode a child process's output on any platform.
+
+    A Chinese Windows console writes GBK; decoding that as utf-8 with 'replace'
+    turns "不是内部或外部命令" into mojibake, which silently defeats the
+    "command not found" detection below.
+    """
+    for enc in ("utf-8", "gbk"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", "replace")
 
 
 def redact(text: str) -> str:
@@ -95,12 +136,14 @@ def collect(command: str, cwd: str = ".", timeout: int = 120,
             ["bash", "-lc", command] if os.name != "nt" else ["cmd", "/c", command],
             cwd=cwd, capture_output=True, timeout=timeout, env=env,
         )
-        code, out, err = p.returncode, p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace")
+        code = p.returncode
+        out, err = _decode(p.stdout), _decode(p.stderr)
     except subprocess.TimeoutExpired:
         code, out, err = None, "", f"timeout after {timeout}s"
     except Exception as exc:  # pragma: no cover - environment failure path
         code, out, err = None, "", f"could not run: {exc}"
 
+    missing_tool = _missing_tool(code, err, out)
     arts = []
     for rel in artifacts or []:
         full = rel if os.path.isabs(rel) else os.path.join(cwd, rel)
@@ -109,7 +152,11 @@ def collect(command: str, cwd: str = ".", timeout: int = 120,
         else:
             arts.append(Artifact(rel, False))
 
-    return Evidence(command, code, out, err, round(time.time() - t0, 2), started, arts)
+    hint = ""
+    if missing_tool:
+        hint = (err.strip().splitlines() or [""])[0][:120]
+    return Evidence(command, code, out, err, round(time.time() - t0, 2), started, arts,
+                    missing_tool, hint)
 
 
 def artifacts_in(expect: str) -> List[str]:

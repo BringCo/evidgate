@@ -2,6 +2,37 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.6.1 — 2026-11-16
+
+### Fixed — a command that never ran could produce a green verdict
+Measured on native Windows (`E:\Python3106`), running `examples/mixed`:
+
+| check | before | after |
+|---|---|---|
+| C3 「源码里没有残留 TODO」 | **PASS** | FAIL 命令未找到 |
+| D1, D2, A1, A2, C2 | FAIL (`operable program or batch file`) | FAIL 命令未找到 |
+
+C3 was a **silent false green**: `grep` does not exist in `cmd`, and `cmd` exits `1`,
+which is exactly what `expect: exit:1` ("grep found nothing") asks for. The check
+reported "no leftover TODO" without ever looking at a file.
+
+- `_missing_tool()` detects a command that was never executed. Text is the primary
+  signal (`command not found`, `is not recognized…`, `不是内部或外部命令`), because exit
+  codes are not usable: the same missing command measured 1, 9009 and even 0 depending
+  on the shell wrapper. `9009` (cmd's dedicated code) and `127` corroborate.
+- Checks the failing command's **stdout as well as stderr** — `cmd` writes
+  "not recognized" to stdout in some paths, which is why `exit 9009` was initially missed.
+- `_decode()` tries UTF-8 then GBK. Decoding a Chinese Windows console as UTF-8 with
+  `replace` turned `不是内部或外部命令` into mojibake and silently defeated the detection.
+- A missing command now yields **FAIL(red)** for a required check and **SKIP** for an
+  `optional:` one — no new status was added to the three-state model.
+- `_fix_console()` reconfigures stdout/stderr to UTF-8 with `errors="replace"`; a GBK
+  console previously raised `UnicodeEncodeError` mid-run.
+- `evidgate doctor` prints the shell it will use and warns on Windows that POSIX checks
+  (`grep`/`test`/`$()`) will not run there.
+- README: Windows section — `builtin:` checks work everywhere, shell checks need a
+  POSIX shell.
+
 ## 0.6.0 — 2026-11-16
 
 ### Added
