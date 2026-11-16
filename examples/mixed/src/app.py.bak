@@ -1,0 +1,7 @@
+"""Fictional pricing helper, used only to show a code check inside the same ledger."""
+RATE = 0.70
+
+
+def estimate(condition: int, edition: int) -> float:
+    base = {1: 30, 2: 50, 3: 80}.get(edition, 30)
+    return round(base * (1 - RATE) + condition * 2, 2)

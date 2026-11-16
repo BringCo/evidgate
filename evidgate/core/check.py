@@ -23,6 +23,7 @@ class Check:
     expect: str              # assertion, e.g. "exit:0; contains:OK" or "manual"
     counter: str = ""        # counter-test; empty is refused by validate()
     severity: str = "red"    # red -> blocking, yellow -> non-blocking (DIFF)
+    optional: bool = False   # true -> a failing command becomes SKIP (not applicable), not red
     timeout: int = 120
     note: str = ""
 
@@ -39,6 +40,13 @@ class Check:
             )
         if self.severity not in SEVERITIES:
             raise ValueError(f"{self.cid}: severity must be one of {SEVERITIES}")
+        if "not_contains" in self.expect and "exit:" not in self.expect:
+            raise ValueError(
+                f"{self.cid} ({self.name}): 'not_contains' without an 'exit:' clause. "
+                "If the command fails and prints nothing, not_contains passes on empty "
+                "output -- a tautology that reports green when the file is gone. "
+                "Pair it with exit:0."
+            )
 
 
 _HEAD = re.compile(r"^\s*-\s*(\w+)\s*:\s*(.*)$")
@@ -122,7 +130,7 @@ def load_checks(path: str) -> List[Check]:
     for c in checks:
         c.validate()
     if not checks:
-        raise ValueError(f"{path}: no checks declared")
+        raise ValueError(f"{path}: 没有任何启用的检查项（注释模板不算）；打开它，去掉 # 写下第一条")
     ids = [c.cid for c in checks]
     dup = {x for x in ids if ids.count(x) > 1}
     if dup:

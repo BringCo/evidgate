@@ -35,13 +35,17 @@ class Evidence:
         lines = [l for l in self.stdout.splitlines() if l.strip()]
         return " | ".join(lines[-n:])[:400]
 
-    def missing(self) -> List[str]:
-        """Evidence three-piece self-check. Empty list == evidence is complete."""
+    def missing(self, needs_stdout: bool = False) -> List[str]:
+        """Evidence three-piece self-check. Empty list == evidence is complete.
+
+        An exit-code-only assertion is fully evidenced by the exit code; demanding
+        stdout there would flag every quiet-but-correct check as incomplete.
+        """
         gaps = []
         if self.exit_code is None:
             gaps.append("no exit code")
-        if not self.stdout.strip() and not self.artifacts:
-            gaps.append("no output and no artifact")
+        if needs_stdout and not self.stdout.strip():
+            gaps.append("assertion needs stdout but the command printed nothing")
         if not self.started_at:
             gaps.append("no timestamp")
         for a in self.artifacts:
@@ -61,6 +65,10 @@ def _md5(path: str) -> str:
 def collect(command: str, cwd: str = ".", timeout: int = 120,
             artifacts: Optional[List[str]] = None) -> Evidence:
     """Run a shell command and record everything needed to re-check it later."""
+    from . import builtin
+    if builtin.is_builtin(command):
+        return builtin.dispatch(command, cwd=cwd)
+
     started = time.strftime("%Y-%m-%dT%H:%M:%S")
     t0 = time.time()
     env = dict(os.environ)

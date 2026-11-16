@@ -31,7 +31,8 @@ class TestCounterTestDiscipline(unittest.TestCase):
 
 class TestMiniYaml(unittest.TestCase):
     def test_parses_the_example_without_pyyaml(self):
-        text = open(os.path.join(ROOT, "examples", "evidgate.yaml"), encoding="utf-8").read()
+        with open(os.path.join(ROOT, "examples", "evidgate.yaml"), encoding="utf-8") as fh:
+            text = fh.read()
         data = _mini_yaml.__wrapped__(text) if hasattr(_mini_yaml, "__wrapped__") else None
         # exercise the dependency-free branch directly
         import evidgate.core.check as ch
@@ -94,9 +95,11 @@ class TestLedger(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "l.md")
             a = build(p, checks, v, "demo")
-            b1 = open(p, "rb").read()
+            with open(p, "rb") as fh:
+                b1 = fh.read()
             build(p, checks, v, "demo")
-            b2 = open(p, "rb").read()
+            with open(p, "rb") as fh:
+                b2 = fh.read()
         self.assertEqual(b1, b2, "ledger rebuild is not byte-identical")
 
     def test_resume_sees_letter_prefixed_ids(self):
@@ -125,3 +128,80 @@ class TestLedger(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestBuiltinDispatch(unittest.TestCase):
+    """A check the tool generates must run the way the tool is installed (no PATH)."""
+
+    def test_builtin_prose_runs_in_process(self):
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "p.md"), "w", encoding="utf-8") as fh:
+                fh.write("本系统首次实现校园二手书的智能定价功能。\n")
+            ev = collect("builtin:prose:absolutes p.md", cwd=d)
+        self.assertEqual(ev.exit_code, 2)
+        self.assertIn("首次", ev.stdout)
+
+    def test_unknown_plugin_is_reported(self):
+        ev = collect("builtin:nope:rule p.md", cwd=ROOT)
+        self.assertIsNone(ev.exit_code)
+        self.assertIn("unknown builtin plugin", ev.stderr)
+
+
+class TestDiagnosability(unittest.TestCase):
+    def test_missing_command_explains_127(self):
+        c = Check("C1", "n", "definitely-not-a-command-xyz", "exit:0", counter="x")
+        v = run_check(c, cwd=ROOT)
+        self.assertEqual(v.status, FAIL)
+        self.assertIn("命令未找到", v.detail)
+
+    def test_doctor_flags_missing_command(self):
+        import io
+        import contextlib
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
+                fh.write("checks:\n  - cid: C1\n    name: n\n"
+                         "    method: no-such-binary-xyz\n    expect: exit:0\n"
+                         "    counter: x\n    severity: red\n")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = main(["doctor", "--dir", d])
+        self.assertEqual(rc, 1)
+        self.assertIn("BAD", buf.getvalue())
+
+
+class TestOptionalSkip(unittest.TestCase):
+    def test_optional_failure_is_skip_and_does_not_block(self):
+        c = Check("C1", "n", "false", "exit:0", counter="x", optional=True)
+        v = run_check(c, cwd=ROOT)
+        self.assertEqual(v.status, "SKIP")
+        ok, _ = release_allowed([v])
+        self.assertTrue(ok, "an optional/not-applicable check must not block release")
+
+
+class TestInitAdaptive(unittest.TestCase):
+    def test_empty_dir_gets_commented_template(self):
+        import io
+        import contextlib
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["init", "--dir", d])
+            with open(os.path.join(d, "evidgate.yaml"), encoding="utf-8") as fh:
+                txt = fh.read()
+            self.assertIn("# - cid: C1", txt)
+            with self.assertRaises(ValueError) as ctx:
+                load_checks(os.path.join(d, "evidgate.yaml"))
+            self.assertIn("没有任何启用", str(ctx.exception))
+
+    def test_existing_file_gets_a_runnable_check(self):
+        import io
+        import contextlib
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "draft.md"), "w", encoding="utf-8") as fh:
+                fh.write("x\n")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["init", "--dir", d])
+            checks = load_checks(os.path.join(d, "evidgate.yaml"))
+        self.assertIn("draft.md", checks[0].method)

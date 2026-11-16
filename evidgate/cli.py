@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 from typing import Dict, List
 
 from . import __version__
+from .core import builtin
 from .core.check import load_checks
 from .core.gate import FAIL, LABEL, PENDING, PASS, summarize, release_allowed, run_check
 from .core.gate import Verdict
@@ -15,22 +17,41 @@ from .plugins import prose
 
 CONFIG = "evidgate.yaml"
 
-TEMPLATE = """# evidgate config. One check = one command + one assertion + one counter-test.
-project: my-project
+TPL_ACTIVE = """# evidgate config. One check = one command + one assertion + one counter-test.
+project: {project}
 ledger: evidgate_ledger.md
 
 checks:
   - cid: C1
     name: 交付文件存在且非空
-    method: test -s report.md && wc -c < report.md
-    expect: exit:0; regex:^[1-9]
-    counter: 删掉 report.md 或清空它，本项必须变红
+    method: test -s {target} && wc -c < {target}
+    expect: exit:0; regex:\\d
+    counter: 删掉 {target} 或清空它，本项必须变红
     severity: red
 """
+
+TPL_EMPTY = """# evidgate config. 这个目录里没找到可交付文件，所以下面是注释模板。
+# 写第一条检查: method 是一条会给出确定退出码的命令, counter 是「怎么让它变红」。
+project: {project}
+ledger: evidgate_ledger.md
+
+checks:
+  # 复制下面三行, 去掉 #, 改成你自己的
+  # - cid: C1
+  #   name: 交付文件存在且非空
+  #   method: test -s your_output.md && wc -c < your_output.md
+  #   expect: exit:0; regex:\\d
+  #   counter: 删掉 your_output.md 或清空它, 本项必须变红
+  #   severity: red
+"""
+
+NOTE = "note: PASS 表示「证据存在且可复现」，不表示数值本身正确。"
+CANDIDATES = ("report.md", "draft.md", "paper.md", "README.md", "main.py", "src")
+
 PROSE_TEMPLATE = """
   - cid: {cid}
     name: {name}
-    method: evidgate prose scan --file {paper} --rule {rule}
+    method: builtin:prose:{rule} {paper}
     expect: exit:0
     counter: {counter}
     severity: {sev}
@@ -55,8 +76,12 @@ def _load(dir_: str):
     if not os.path.exists(cfg_path):
         sys.exit(f"no {CONFIG} in {dir_}. run: evidgate init --dir {dir_}")
     from .core.check import _mini_yaml
-    cfg = _mini_yaml(open(cfg_path, encoding="utf-8").read())
-    checks = load_checks(cfg_path)
+    with open(cfg_path, encoding="utf-8") as fh:
+        cfg = _mini_yaml(fh.read())
+    try:
+        checks = load_checks(cfg_path)
+    except ValueError as exc:
+        sys.exit(str(exc))
     ledger = cfg.get("ledger", "evidgate_ledger.md")
     project = cfg.get("project", os.path.basename(os.path.abspath(dir_)))
     return cfg, checks, os.path.join(dir_, ledger), project
@@ -76,19 +101,28 @@ def _run(checks, dir_: str, only=None) -> Dict[str, Verdict]:
 def _summary_line(verdicts) -> str:
     s = summarize(list(verdicts.values()))
     return (f"PASS {s[PASS]} · DIFF(黄) {s['DIFF']} · FAIL(红) {s[FAIL]} · "
-            f"待补 {s[PENDING]} | coverage {s['done']}/{s['total']} ({round(100*s['coverage'],1)}%)")
+            f"待补 {s[PENDING]} · 未覆盖 {s.get('SKIP', 0)} | "
+            f"coverage {s['done']}/{s['total']} ({round(100*s['coverage'],1)}%)")
 
 
 def cmd_init(a) -> int:
     d = a.dir
     os.makedirs(d, exist_ok=True)
     p = os.path.join(d, CONFIG)
+    target = next((c for c in CANDIDATES if os.path.exists(os.path.join(d, c))), None)
+    project = os.path.basename(os.path.abspath(d))
+    body = (TPL_ACTIVE if target else TPL_EMPTY).format(project=project, target=target or "report.md")
     if os.path.exists(p) and not a.force:
         print(f"{p} exists (use --force to overwrite)")
     else:
-        open(p, "w", encoding="utf-8", newline="\n").write(TEMPLATE)
+        with open(p, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
         print(f"wrote {p}")
-    print("next: edit the checks, then run `evidgate run --dir %s`" % d)
+        if target:
+            print(f"  starter check targets existing file: {target}")
+        else:
+            print("  目录里没有可交付文件，已生成注释模板；写下你的第一条检查后再 run")
+    print(f"next: evidgate doctor --dir {d}  →  evidgate run --dir {d}")
     return 0
 
 
@@ -110,6 +144,52 @@ def cmd_prose_init(a) -> int:
     return 0
 
 
+
+def cmd_doctor(a) -> int:
+    """Check the environment before blaming the project."""
+    d = a.dir
+    print(f"evidgate doctor · {os.path.abspath(d)}")
+    cfg = os.path.join(d, CONFIG)
+    if not os.path.exists(cfg):
+        print(f"  [BAD ] {CONFIG} 不存在 —— 先跑: evidgate init --dir {d}")
+        return 1
+    try:
+        _, checks, ledger_path, project = _load(d)
+    except SystemExit as exc:
+        if exc.code not in (0, None):
+            print(f"  [BAD ] {exc.code}")
+        return 1
+    except Exception as exc:
+        print(f"  [BAD ] yaml 解析失败: {exc}")
+        return 1
+    print(f"  [OK  ] yaml 可解析 · {len(checks)} 条检查 · project={project}")
+    all_ok = True
+    for c in checks:
+        m = c.method.strip()
+        if builtin.is_builtin(m):
+            verdict = builtin.describe(m, cwd=d)
+        else:
+            head = (m.split() or [""])[0]
+            shell_builtin = {"cd", "test", "echo", "true", "false", "export", "set",
+                             "source", ".", "printf", "read", "if", "for", "while"}
+            if not head:
+                verdict = "BAD: method 为空"
+            elif head in shell_builtin:
+                verdict = "OK (shell 内建)"
+            elif shutil.which(head):
+                verdict = "OK (在 PATH 中)"
+            elif os.path.exists(os.path.join(d, head)):
+                verdict = "OK (项目内文件)"
+            else:
+                verdict = f"BAD: 命令 {head!r} 不在 PATH，也不是项目内文件"
+        bad = verdict.startswith("BAD")
+        all_ok = all_ok and not bad
+        print(f"  [{'BAD ' if bad else 'OK  '}] {c.cid:>4} {c.name[:26]:26s} {verdict}")
+    print(f"  ledger: {ledger_path}")
+    print("  " + ("环境就绪，可以 run" if all_ok else "先修上面 BAD 项，再 run"))
+    return 0 if all_ok else 1
+
+
 def cmd_run(a) -> int:
     cfg, checks, ledger_path, project = _load(a.dir)
     only = set(x.strip() for x in a.only.split(",")) if a.only else None
@@ -121,6 +201,7 @@ def cmd_run(a) -> int:
     ok, why = release_allowed(list(verdicts.values()))
     print(("RELEASE OK  " if ok else "RELEASE BLOCKED  ") + why)
     print(f"ledger: {ledger_path}")
+    print(NOTE)
     return 0 if ok else 1
 
 
@@ -221,6 +302,10 @@ def main(argv=None) -> int:
     p = sub.add_parser("report", help="write gate_report.md from the ledger")
     p.add_argument("--dir", default=".")
     p.set_defaults(fn=cmd_report)
+
+    p = sub.add_parser("doctor", help="check yaml + commands before blaming the project")
+    p.add_argument("--dir", default=".")
+    p.set_defaults(fn=cmd_doctor)
 
     p = sub.add_parser("mutate", help="prove the checks can go red")
     p.add_argument("--dir", default=".")

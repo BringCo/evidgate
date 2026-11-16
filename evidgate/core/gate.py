@@ -15,8 +15,9 @@ from typing import List, Tuple
 from .check import Check
 from .evidence import Evidence, artifacts_in, collect
 
-PASS, DIFF, FAIL, PENDING = "PASS", "DIFF", "FAIL", "PENDING"
-LABEL = {PASS: "PASS", DIFF: "DIFF(黄)", FAIL: "FAIL(红)", PENDING: "待补"}
+PASS, DIFF, FAIL, PENDING, SKIP = "PASS", "DIFF", "FAIL", "PENDING", "SKIP"
+LABEL = {PASS: "PASS", DIFF: "DIFF(黄)", FAIL: "FAIL(红)",
+         PENDING: "待补", SKIP: "SKIP(未覆盖)"}
 
 
 @dataclass
@@ -55,8 +56,13 @@ def evaluate(check: Check, ev: Evidence, cwd: str = ".") -> Tuple[str, str]:
             want = int(arg)
             good = ev.exit_code == want
             note = f"exit {ev.exit_code} (want {want})"
-            if not good and ev.key_output(2):
-                note += f" | got: {ev.key_output(2)}"
+            if not good and ev.exit_code == 127:
+                note += (" | 命令未找到(127)：它不在 PATH 里。改用 "
+                         "builtin:<plugin>:<rule>，或写绝对路径")
+            elif not good:
+                tail = ev.key_output(2) or (ev.stderr.strip().splitlines() or [""])[-1][:160]
+                if tail:
+                    note += f" | got: {tail}"
         elif kind == "contains":
             good = arg in ev.stdout
             note = f"contains {'OK' if good else 'MISSING'}:{arg}"
@@ -100,7 +106,9 @@ def run_check(check: Check, cwd: str = ".") -> Verdict:
     ev = collect(check.method, cwd=cwd, timeout=check.timeout,
                  artifacts=artifacts_in(check.expect))
     status, detail = evaluate(check, ev, cwd=cwd)
-    gaps = ev.missing()
+    if check.optional and status in (FAIL, DIFF):
+        return Verdict(check.cid, SKIP, "optional (未覆盖): " + detail, ev)
+    gaps = ev.missing(needs_stdout=any(k in check.expect for k in ("contains", "regex", "lines")))
     if status in (PASS, DIFF) and gaps:
         # a green verdict built on incomplete evidence is not a green verdict
         status = PENDING if check.expect.strip() == "manual" else status
@@ -109,11 +117,11 @@ def run_check(check: Check, cwd: str = ".") -> Verdict:
 
 
 def summarize(verdicts: List[Verdict]) -> dict:
-    counts = {PASS: 0, DIFF: 0, FAIL: 0, PENDING: 0}
+    counts = {PASS: 0, DIFF: 0, FAIL: 0, PENDING: 0, SKIP: 0}
     for v in verdicts:
         counts[v.status] = counts.get(v.status, 0) + 1
     total = len(verdicts)
-    done = counts[PASS] + counts[DIFF] + counts[FAIL]
+    done = counts[PASS] + counts[DIFF] + counts[FAIL] + counts.get(SKIP, 0)
     return {
         **counts,
         "total": total,
@@ -130,4 +138,8 @@ def release_allowed(verdicts: List[Verdict]) -> Tuple[bool, str]:
         return False, "blocked by " + ", ".join(v.cid for v in fails)
     if pend:
         return False, "unchecked: " + ", ".join(v.cid for v in pend)
-    return True, "all red checks green; yellow items go to the confirmation list"
+    skips = [v for v in verdicts if v.status == SKIP]
+    tail = "; yellow items go to the confirmation list"
+    if skips:
+        tail += f" ({len(skips)} optional/未覆盖: " + ", ".join(v.cid for v in skips) + ")"
+    return True, "all red checks green" + tail

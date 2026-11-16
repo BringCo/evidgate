@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "evidgate"
 version = "0.1.0"
-description = "Evidence gates for documents: every claim gets a command, an exit code, and a ledger line."
+description = "Evidence gates for deliverables: every claim gets a command, an exit code, and a ledger line."
 readme = "README.md"
 requires-python = ">=3.9"
 license = {file = "LICENSE"}
@@ -16,6 +16,7 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Topic :: Documentation",
+  "Topic :: Software Development :: Testing",
   "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = []

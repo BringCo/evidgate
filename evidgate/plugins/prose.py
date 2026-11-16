@@ -69,7 +69,9 @@ def rule_uncited(lines: List[Tuple[int, str]]) -> List[str]:
 def rule_numeral_scope(lines: List[Tuple[int, str]]) -> List[str]:
     hits = []
     for ln, s in lines:
-        if NUMSTAT.search(s) and len(s) > 20 and not SCOPE.search(s):
+        # no length threshold: a short sentence carrying a bare percentage is exactly
+        # the case that slips through when the rule "looks" like it is working.
+        if NUMSTAT.search(s) and not SCOPE.search(s):
             hits.append(f"L{ln} {s[:70]}")
     return hits
 
