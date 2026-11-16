@@ -117,12 +117,30 @@ def _summary_line(verdicts) -> str:
             f"coverage {s['done']}/{s['total']} ({round(100*s['coverage'],1)}%)")
 
 
+PACK_TPL = """# evidgate · {project}
+# 检查项来自 packs，不需要手写。
+project: {project}
+ledger: evidgate_ledger.md
+packs: {packs}
+"""
+
+
 def cmd_init(a) -> int:
     d = a.dir
     os.makedirs(d, exist_ok=True)
     p = os.path.join(d, CONFIG)
-    target = next((c for c in CANDIDATES if os.path.exists(os.path.join(d, c))), None)
     project = os.path.basename(os.path.abspath(d))
+    if getattr(a, "packs", ""):
+        body = PACK_TPL.format(project=project, packs=a.packs)
+        if os.path.exists(p) and not a.force:
+            print(f"{p} exists (use --force to overwrite)")
+            return 0
+        with open(p, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        print(f"wrote {p}  (packs: {a.packs})")
+        print(f"next: evidgate run --dir {d}")
+        return 0
+    target = next((c for c in CANDIDATES if os.path.exists(os.path.join(d, c))), None)
     body = (TPL_ACTIVE if target else TPL_EMPTY).format(project=project, target=target or "report.md")
     if os.path.exists(p) and not a.force:
         print(f"{p} exists (use --force to overwrite)")
@@ -208,6 +226,16 @@ def cmd_artifact_update(a) -> int:
     n = art.refresh(out)
     print(f"{out}: 更新了 {n} 个 md5（未动 source_md5；那要用 artifact-stamp 显式盖章）")
     print("now re-run the gate: evidgate run --dir " + a.dir)
+    return 0
+
+
+def cmd_suggest(a) -> int:
+    from .core.suggest import probe, render
+    result = probe(a.dir)
+    print(render(result))
+    if getattr(a, "write", False) and result["packs"]:
+        ns = type("A", (), {"dir": a.dir, "force": False, "packs": ",".join(result["packs"])})()
+        return cmd_init(ns)
     return 0
 
 
@@ -419,6 +447,7 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("init", help="write a starter evidgate.yaml")
     p.add_argument("--dir", default=".")
+    p.add_argument("--packs", default="", help="e.g. figures,build — write a packs-only config")
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
 
@@ -451,6 +480,11 @@ def main(argv=None) -> int:
     p.add_argument("--dir", default=".")
     p.add_argument("--manifest", default="artifacts.json")
     p.set_defaults(fn=cmd_artifact_update)
+
+    p = sub.add_parser("suggest", help="scan a project and say which packs apply")
+    p.add_argument("--dir", default=".")
+    p.add_argument("--write", action="store_true", help="also write evidgate.yaml")
+    p.set_defaults(fn=cmd_suggest)
 
     p = sub.add_parser("pack", help="list reusable check packs, or show one expanded")
     p.add_argument("action", nargs="?", default="list", choices=["list", "show"])

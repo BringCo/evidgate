@@ -677,3 +677,46 @@ class TestShellDeclaration(unittest.TestCase):
         with self.assertRaises(ValueError):
             Check(cid="X", name="n", method="m", expect="exit:0",
                   counter="c", shell="fish").validate()
+
+
+class TestSuggest(unittest.TestCase):
+    """Suggest reads the disk; it must not invent work that is not there."""
+
+    def test_figure_tree_suggests_the_figures_pack(self):
+        import tempfile, os
+        from evidgate.core.suggest import probe
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "figs"))
+            os.makedirs(os.path.join(d, "png"))
+            open(os.path.join(d, "figs", "a.svg"), "w").write("<svg/>")
+            open(os.path.join(d, "png", "a.png"), "w").write("x")
+            self.assertIn("figures", probe(d)["packs"])
+
+    def test_readme_alone_is_not_a_document_to_audit(self):
+        import tempfile, os
+        from evidgate.core.suggest import probe
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "README.md"), "w").write("# hi\n")
+            self.assertEqual(probe(d)["findings"], [])
+
+    def test_ledger_is_not_counted_as_a_document(self):
+        import tempfile, os
+        from evidgate.core.suggest import probe
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "evidgate_ledger.md"), "w").write("# x\n")
+            open(os.path.join(d, "gate_report.md"), "w").write("# y\n")
+            self.assertEqual(probe(d)["findings"], [])
+
+    def test_write_produces_a_runnable_packs_config(self):
+        import tempfile, os, subprocess, sys
+        E = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "evidgate")
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "figs"))
+            os.makedirs(os.path.join(d, "png"))
+            open(os.path.join(d, "figs", "a.svg"), "w").write("<svg/>")
+            open(os.path.join(d, "png", "a.png"), "w").write("x")
+            subprocess.run([sys.executable, "-m", "evidgate.cli", "suggest", "--dir", d, "--write"],
+                           capture_output=True)
+            cfg = os.path.join(d, "evidgate.yaml")
+            self.assertTrue(os.path.exists(cfg))
+            self.assertIn("packs: figures", open(cfg, encoding="utf-8").read())

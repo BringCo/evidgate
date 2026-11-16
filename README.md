@@ -274,6 +274,27 @@ false green.
 
 On Windows, prefer `builtin:` checks, or run under Git Bash / WSL.
 
+## Start here: `evidgate suggest`
+
+An empty config is the worst first minute. Ask instead:
+
+```console
+$ evidgate suggest
+扫到的东西：
+  · figs 一带：3 个 svg、4 个 png、3 个 pdf
+      → 一个源 + 多个派生 —— 正是 figures 包要盯的结构
+
+建议在 evidgate.yaml 里写一行：
+    packs: figures
+
+生成它：evidgate init --packs figures
+```
+
+It reads the disk — figure directories, build output, a bibliography, tests — and says
+which packs apply and which checks you still need to write yourself. `--write` produces
+the config directly. `README.md` and evidgate's own ledger/report are never mistaken for
+documents to audit.
+
 ## Check packs
 
 Write one line instead of fifteen:

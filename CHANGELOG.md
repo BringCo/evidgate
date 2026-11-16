@@ -2,6 +2,39 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.8.0 — 2026-11-16
+
+### Added — `evidgate suggest`
+Answers the real first question ("what should I even check?") from evidence on disk
+instead of from a template:
+
+- a vector source plus a raster/print derivative anywhere in the tree → `figures`
+- a `dist/` / `build/` / `output/` with files in it → `build`
+- a document with a real bibliography → suggests `prose-init`, and says so when the
+  citation scheme is not `[n]`-numbered
+- test files or a `tests/` directory → `repo`
+- `.env` / `secrets.yml` / `credentials.json` present → tells you to confirm it is ignored
+
+`evidgate init --packs figures,build` writes the config directly; `--write` does it
+straight from `suggest`.
+
+Measured on six directories, no configuration:
+
+| directory | suggested |
+|---|---|
+| `examples/figures` | `figures` |
+| `examples/artifact` | `build` |
+| `IDSIA/sacred` | `repo` |
+| `ashleve/lightning-hydra-template` | `repo` |
+| `the-nix-way/dev-templates` | none — said so instead of inventing checks |
+
+Excludes `README.md`, the ledger and the gate report: a project's own furniture is not a
+document to audit.
+
+### Fixed during development
+- `probe()` referenced `TEST_HINTS` without the inner loop and used `entries` before it
+  was defined — both were caught by running it, neither by reading it.
+
 ## 0.7.1 — 2026-11-16
 
 ### Fixed — `build` pack GB3 tested the wrong thing
