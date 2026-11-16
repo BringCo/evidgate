@@ -1,8 +1,8 @@
 __pycache__/
 *.py[cod]
 .venv/
-build/
-dist/
+/build/
+/dist/
 *.egg-info/
 **/evidgate_ledger.md
 **/gate_report.md

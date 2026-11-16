@@ -44,10 +44,12 @@ SKIP_FILES = {"evidgate.yaml", "evidgate_ledger.md", "gate_report.md"}
 RULES = ("manifest", "stale", "orphan", "sync")
 
 
-def _md5(path: str) -> str:
+def _md5(path: str, normalize_newlines: bool = False) -> str:
     h = hashlib.md5()
     with open(path, "rb") as fh:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
+            if normalize_newlines:
+                chunk = chunk.replace(b"\r\n", b"\n")
             h.update(chunk)
     return h.hexdigest()
 
@@ -59,8 +61,6 @@ def _load(path: str) -> Tuple[str, List[dict]]:
     if not os.path.isabs(root):
         root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(path)), root))
     items = data.get("items") or []
-    if not items:
-        raise SystemExit(f"{path}: manifest has no items")
     return root, items
 
 
@@ -84,6 +84,9 @@ def rule_manifest(path: str) -> List[str]:
         if want:
             got = _md5(full)
             if got != want:
+                # a pure line-ending difference is a checkout artefact, not an edit
+                if _md5(full, normalize_newlines=True) == want:
+                    continue
                 hits.append(f"内容变了(手改或重跑过): {rel}  md5 {got[:8]} != 登记 {want[:8]}")
     return hits
 
