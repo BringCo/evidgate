@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/BringCo/evidgate/actions/workflows/ci.yml/badge.svg)](https://github.com/BringCo/evidgate/actions/workflows/ci.yml)
 
+**English** · [简体中文](README.zh-CN.md)
+
 **A command-line tool that turns a deliverable's claims into checks — and refuses to
 load a check that cannot go red.**
 
