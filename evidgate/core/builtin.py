@@ -31,8 +31,11 @@ def _load_default_plugins() -> None:
         return
     from ..plugins import prose
     # each builtin entry takes (path) and returns an exit code; prose.scan is that entry
-    register("prose", {rule: (lambda path, _r=rule: prose.scan(path, _r))
+    from ..plugins import artifact
+    register("prose", {rule: (lambda argv, _r=rule: prose.scan(argv[0], _r))
                        for rule in prose.RULES})
+    register("artifact", {rule: (lambda argv, _r=rule: artifact.run(_r, argv))
+                          for rule in artifact.RULES})
 
 
 def parse(method: str) -> Tuple[str, str, List[str]]:
@@ -68,7 +71,7 @@ def dispatch(method: str, cwd: str = ".") -> Evidence:
         if cwd and os.path.isdir(cwd):
             os.chdir(cwd)
         with contextlib.redirect_stdout(buf):
-            code = int(PLUGINS[plugin][rule](*args))
+            code = int(PLUGINS[plugin][rule](args))
     except SystemExit as exc:  # a rule may call sys.exit
         code = int(exc.code or 0)
     except TypeError as exc:

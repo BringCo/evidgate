@@ -3,4 +3,4 @@
 Core idea: one ledger line == one check == one piece of evidence == one resume point
 == one release decision. Nothing lives in two places.
 """
-__version__ = "0.1.0"
+__version__ = "0.2.0"

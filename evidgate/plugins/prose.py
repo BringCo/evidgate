@@ -102,7 +102,8 @@ RULES = {
 
 def scan(path: str, rule: str, quiet: bool = False) -> int:
     fn, red_code = RULES[rule]
-    text = open(path, encoding="utf-8").read()
+    with open(path, encoding="utf-8") as fh:
+        text = fh.read()
     lines = sentences(body(text))
     hits = fn(text) if rule == "citation_chain" else fn(lines)
     if not quiet:

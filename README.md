@@ -90,6 +90,7 @@ evidgate resume --dir <proj>                     # rerun only unresolved checks
 evidgate report --dir <proj>                     # gate_report.md: table, yellows, unverified, verdict
 evidgate mutate --baseline A --mutant B [--only C1]   # does the check actually go red?
 evidgate prose-init --dir <proj> --file <draft>  # append the Chinese prose checks (P1..P5)
+evidgate artifact-init --dir <proj>              # scan a directory into a first-draft artifacts.json
 evidgate prose scan --file <draft> --rule absolutes   # one rule, standalone
 ```
 
@@ -132,6 +133,34 @@ would show up as a red failure, which is how a gate loses its audience.
 An assertion that needs stdout (`contains` / `regex` / `lines`) fails the evidence
 self-check if the command printed nothing — a `not_contains` on empty output would
 otherwise be a tautology.
+
+## Plugin: artifact (manifest-driven)
+
+Four checks derived from three rules that govern content assets: one asset has one
+source; a derivative is regenerated, never hand-edited; registering at creation time is
+cheap. Everything is decidable from a manifest, so nothing is guessed.
+
+```bash
+evidgate artifact-init --dir .        # scans into artifacts.json (all role=source)
+# then mark what is a derivative and what came from where
+```
+
+```yaml
+- cid: A1
+  name: 登记产物齐全且未被手改
+  method: builtin:artifact:manifest artifacts.json
+  expect: exit:0
+```
+
+| rule | asks | red/yellow |
+|---|---|---|
+| `manifest` | is every registered file still present, and does a recorded md5 still match? | red |
+| `stale` | is a derivative older than its source (i.e. never regenerated)? | yellow |
+| `sync` | does a `same_as_source` derivative still equal its source? | red |
+| `orphan` | is there a file on disk the manifest never registered? | yellow |
+
+The gate's own files (`evidgate.yaml`, `evidgate_ledger.md`, `gate_report.md`) never
+count as orphans — they are configuration and output, not deliverables.
 
 ## Plugin: prose (Chinese)
 

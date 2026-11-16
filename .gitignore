@@ -4,5 +4,5 @@ __pycache__/
 build/
 dist/
 *.egg-info/
-examples/evidgate_ledger.md
-examples/gate_report.md
+**/evidgate_ledger.md
+**/gate_report.md

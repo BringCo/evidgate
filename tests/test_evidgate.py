@@ -205,3 +205,71 @@ class TestInitAdaptive(unittest.TestCase):
                 main(["init", "--dir", d])
             checks = load_checks(os.path.join(d, "evidgate.yaml"))
         self.assertIn("draft.md", checks[0].method)
+
+
+class TestArtifactPlugin(unittest.TestCase):
+    """Manifest-driven checks: registered? not stale? not hand-edited? not orphaned?"""
+
+    def _project(self, d):
+        import json
+        import time
+        os.makedirs(os.path.join(d, "src"))
+        os.makedirs(os.path.join(d, "build"))
+        os.makedirs(os.path.join(d, "draft"))
+        src = os.path.join(d, "src", "s.md")
+        html = os.path.join(d, "build", "s.html")
+        old = os.path.join(d, "build", "s.pdf")
+        cp = os.path.join(d, "draft", "c.md")
+        for p, t in [(src, "# source\n"), (html, "html\n"), (old, "pdf\n"), (cp, "changed\n")]:
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(t)
+        with open(os.path.join(d, "note.txt"), "w", encoding="utf-8") as fh:
+            fh.write("unregistered\n")
+        now = time.time()
+        os.utime(old, (now - 9000, now - 9000))   # derivative older than source
+        os.utime(src, (now - 3600, now - 3600))
+        os.utime(html, (now, now))
+        man = {"root": ".", "items": [
+            {"path": "src/s.md", "role": "source"},
+            {"path": "build/s.html", "role": "derivative", "source": "src/s.md"},
+            {"path": "build/s.pdf", "role": "derivative", "source": "src/s.md"},
+            {"path": "draft/c.md", "role": "derivative", "source": "src/s.md",
+             "same_as_source": True},
+        ]}
+        with open(os.path.join(d, "artifacts.json"), "w", encoding="utf-8") as fh:
+            json.dump(man, fh)
+        return d
+
+    def test_rules(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._project(d)
+            self.assertEqual(collect("builtin:artifact:manifest artifacts.json", cwd=d).exit_code, 0)
+            self.assertEqual(collect("builtin:artifact:stale artifacts.json", cwd=d).exit_code, 3)
+            self.assertEqual(collect("builtin:artifact:sync artifacts.json", cwd=d).exit_code, 2)
+            ev = collect("builtin:artifact:orphan artifacts.json --dir .", cwd=d)
+            self.assertEqual(ev.exit_code, 3)
+            self.assertIn("note.txt", ev.stdout)
+
+    def test_manifest_catches_hand_edit_when_md5_recorded(self):
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            self._project(d)
+            mp = os.path.join(d, "artifacts.json")
+            with open(mp, encoding="utf-8") as fh:
+                man = json.load(fh)
+            man["items"][1]["md5"] = "0" * 32   # recorded hash will not match
+            with open(mp, "w", encoding="utf-8") as fh:
+                json.dump(man, fh)
+            ev = collect("builtin:artifact:manifest artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 2)
+        self.assertIn("内容变了", ev.stdout)
+
+    def test_gate_own_files_are_not_orphans(self):
+        with tempfile.TemporaryDirectory() as d:
+            self._project(d)
+            for name in ("evidgate.yaml", "evidgate_ledger.md", "gate_report.md"):
+                with open(os.path.join(d, name), "w", encoding="utf-8") as fh:
+                    fh.write("x\n")
+            ev = collect("builtin:artifact:orphan artifacts.json --dir .", cwd=d)
+        self.assertNotIn("evidgate.yaml", ev.stdout)
+        self.assertIn("note.txt", ev.stdout)

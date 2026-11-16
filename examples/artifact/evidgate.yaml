@@ -1,0 +1,34 @@
+# evidgate · artifact governance (fictional example)
+# Four checks that come from the asset rules: one source, derivatives are regenerated
+# (never hand-edited), and everything delivered is registered.
+project: artifact-governance (fictional)
+ledger: evidgate_ledger.md
+
+checks:
+  - cid: A1
+    name: 登记产物齐全且未被手改
+    method: builtin:artifact:manifest artifacts.json
+    expect: exit:0
+    counter: 改 build/report.html 一个字节，本项必须变红
+    severity: red
+
+  - cid: A2
+    name: 派生物未过期（不旧于源）
+    method: builtin:artifact:stale artifacts.json
+    expect: exit:0
+    counter: build/report.pdf 的 mtime 早于 src/report.md，本项必须变黄（示例里就是这样）
+    severity: yellow
+
+  - cid: A3
+    name: 派生件没被手改（与源一致）
+    method: builtin:artifact:sync artifacts.json
+    expect: exit:0
+    counter: 手改 draft/copy.md，本项必须变红（示例里就是这样）
+    severity: red
+
+  - cid: A4
+    name: 没有漏纳管的文件
+    method: builtin:artifact:orphan artifacts.json --dir .
+    expect: exit:0
+    counter: 新建一个未登记文件，本项必须变黄（示例里 notes.txt 就是）
+    severity: yellow

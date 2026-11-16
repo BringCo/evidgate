@@ -1,0 +1,26 @@
+{
+  "root": ".",
+  "items": [
+    {
+      "path": "src/report.md",
+      "role": "source"
+    },
+    {
+      "path": "build/report.html",
+      "role": "derivative",
+      "source": "src/report.md",
+      "md5": "d2ba78e7137a19f1ba7e949ced9b7ca7"
+    },
+    {
+      "path": "build/report.pdf",
+      "role": "derivative",
+      "source": "src/report.md"
+    },
+    {
+      "path": "draft/copy.md",
+      "role": "derivative",
+      "source": "src/report.md",
+      "same_as_source": true
+    }
+  ]
+}

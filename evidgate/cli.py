@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -143,6 +144,31 @@ def cmd_prose_init(a) -> int:
     print(f"appended {len(PROSE_CHECKS)} prose checks to {p}")
     return 0
 
+
+
+
+def cmd_artifact_init(a) -> int:
+    """Scan a directory into a first-draft manifest, so nobody has to write JSON by hand."""
+    from .plugins import artifact as art
+    d = a.dir
+    out = os.path.join(d, a.out)
+    if os.path.exists(out) and not a.force:
+        sys.exit(f"{out} exists (use --force to overwrite)")
+    items = []
+    for dp, dn, fn in os.walk(d):
+        dn[:] = [x for x in dn if x not in art.SKIP_DIRS]
+        for f in fn:
+            if f in art.SKIP_FILES or f == a.out:
+                continue
+            full = os.path.join(dp, f)
+            rel = os.path.relpath(full, d).replace(os.sep, "/")
+            items.append({"path": rel, "role": "source", "md5": art._md5(full)})
+    with open(out, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump({"root": ".", "items": items}, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    print(f"wrote {out} ({len(items)} files, all role=source)")
+    print("next: 把派生文件改成 role=derivative 并填 source；手改过的副本加 same_as_source: true")
+    return 0
 
 
 def cmd_doctor(a) -> int:
@@ -302,6 +328,12 @@ def main(argv=None) -> int:
     p = sub.add_parser("report", help="write gate_report.md from the ledger")
     p.add_argument("--dir", default=".")
     p.set_defaults(fn=cmd_report)
+
+    p = sub.add_parser("artifact-init", help="scan a directory into a first-draft artifacts.json")
+    p.add_argument("--dir", default=".")
+    p.add_argument("--out", default="artifacts.json")
+    p.add_argument("--force", action="store_true")
+    p.set_defaults(fn=cmd_artifact_init)
 
     p = sub.add_parser("doctor", help="check yaml + commands before blaming the project")
     p.add_argument("--dir", default=".")
