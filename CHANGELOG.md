@@ -2,6 +2,15 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.9.2.post1 — 2026-11-16
+
+### Docs — the agent use case, and how to install the skill
+
+No code change. The README now names the case where a deliverable came from an agent and
+"done" arrived as a sentence with no command behind it, and documents `skill/evidgate/`
+so the tool can be handed to an agent rather than only to a human. Republication only, so
+the project description on PyPI matches the repository.
+
 ## 0.9.2 — 2026-11-16
 
 ### Fixed — `packs:` silently vanished when PyYAML was absent
