@@ -7,7 +7,7 @@ produced file, or the code that produced it.
 
 ```console
 $ evidgate run --dir examples/mixed
-evidgate 0.9.1 · mixed-delivery (fictional) · 7 checks
+evidgate 0.9.2 · mixed-delivery (fictional) · 7 checks
    D1 FAIL(红)  草稿里的绝对化词带范围或检索日期  ─  -exit 2 (want 0) | got: L3 [首次实现] 本方案首次实现全自动估价流程。 | [absolutes] 1 finding(s)  (exit 2)
    D2 DIFF(黄)  草稿里的统计数字带口径  ─  -exit 3 (want 0) | got: L3 抽样调参后误差降低 18.4%。 | [numeral_scope] 1 finding(s)  (exit 3)
    A1 PASS     产物存在且非空  ─  +exit 0 (want 0) ; +regex OK ─ \d -> 3

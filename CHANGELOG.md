@@ -2,6 +2,30 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.9.2 — 2026-11-16
+
+### Fixed — `packs:` silently vanished when PyYAML was absent
+
+The built-in parser only understood list items (`- key: value`) and indented keys; every
+top-level `key: value` line was dropped. Consequences on a default install (PyYAML is not
+a dependency):
+
+- `packs:` — all three shipped packs (`figures` / `build` / `repo`) were unusable;
+- `project:` and `ledger:` — silently fell back to defaults.
+
+Found by dogfooding: `evidgate init --packs figures` followed by `run` reports
+「没有任何启用的检查项」 on any machine without PyYAML. CI never caught it because the
+test environment has PyYAML installed, so the zero-dependency branch — the one most users
+actually get — was never exercised.
+
+- the parser now reads top-level `key: value`, and turns an unsupported nested block into
+  an explicit error instead of an empty value;
+- `packs: a, b:x=y` still splits packs on commas, and a piece without a colon continues
+  the previous pack's options — so `repo:test_cmd=...,pattern=...` fits on one line;
+- four new tests run with PyYAML hidden on purpose.
+
+Tests: 73 → 77.
+
 ## 0.9.1 — 2026-11-16
 
 ### Fixed — the starter gate was a fake red
