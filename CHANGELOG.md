@@ -2,6 +2,47 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.9.1 — 2026-11-16
+
+### Fixed — the starter gate was a fake red
+
+`evidgate init` wrote a starter check that used `&&` and `<` without declaring `shell:`,
+so the first `run` on a fresh project failed for a reason that had nothing to do with the
+project: `test: extra argument '&&'`. The same command shipped in the commented block of
+the "no deliverable found" path. Every other yaml in the repo (5 shell checks across
+`examples/` and `packs/`) already declared `shell: bash` — the template was the one place
+that did not.
+
+- both templates now declare `shell: bash`
+- `doctor` refuses a `method` that uses shell syntax (`&&`, `||`, `|`, `>`, `<`, `$(`
+  or backticks) without a `shell:` declaration, and names both fixes. Quoted pipes
+  (`grep -E "a|b"`) are not mistaken for a pipe; command substitution inside double
+  quotes (`"$(ls ...)"`) is caught, because double quotes do not suppress it.
+- `doctor` also reports a declared `shell:` that is not installed, instead of assuming it.
+
+Measured after the fix: fresh `init` → `doctor` → `run` gives `C1 PASS`; emptying the file
+gives `C1 FAIL(红) … -exit 1` and `RELEASE BLOCKED`.
+
+### Added — the skill is a tested contract
+
+`skill/SKILL.md` rewritten (20 → 138 lines): when to use it and when not, a copyable
+check skeleton (builtin form and shell form), the five verdicts and what each obliges you
+to do, the full command table, three troubleshooting entries, and the working rules.
+
+`tests/test_skill_commands.py` executes every command in the `skill-check` block of that
+file, in one sandbox, in the documented order. Two ways the test itself could lie are
+closed on purpose:
+
+- an empty or missing block fails (`test_block_declares_enough_commands`), and
+- a subprocess that cannot import the package fails first
+  (`test_the_cli_is_importable_from_a_foreign_cwd`), because otherwise every command
+  "passes" by exiting 1, which is an allowed outcome.
+
+Verified red: adding `evidgate nosuchcmd` to the block makes the suite fail with
+`invalid choice`; removing it makes it green again.
+
+Tests: 64 → 73.
+
 ## 0.9.0 — 2026-11-16
 
 ### Found by running against personal deliverables, not polished projects
