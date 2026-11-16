@@ -369,6 +369,7 @@ class TestArtifactStaleByHash(unittest.TestCase):
             ev = collect("builtin:artifact:stale artifacts.json", cwd=d)
         self.assertEqual(ev.exit_code, 3)
         self.assertIn("未记录 source_md5", ev.stdout)
+        self.assertIn("artifact-stamp", ev.stdout, "hint must point at the only writer")
 
     def test_ignore_rule_silences_matching_orphans(self):
         with tempfile.TemporaryDirectory() as d:

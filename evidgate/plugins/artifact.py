@@ -124,7 +124,7 @@ def rule_stale(path: str) -> List[str]:
             continue
         recorded = it.get("source_md5")
         if not recorded:
-            hits.append(f"未记录 source_md5，无法判断是否过期: {rel}（跑 artifact-update 补上）")
+            hits.append(f"未记录 source_md5，无法判断是否过期: {rel}（重新生成后跑 artifact-stamp 记录）")
             continue
         if _md5(s) != recorded:
             hits.append(f"源已变，派生未重新生成: {rel} <- {src}")
