@@ -163,6 +163,11 @@ evidgate artifact-init --dir .        # scans into artifacts.json (all role=sour
 The gate's own files (`evidgate.yaml`, `evidgate_ledger.md`, `gate_report.md`) never
 count as orphans — they are configuration and output, not deliverables.
 
+**Boundary of `stale`:** it compares mtime, so it is meaningful on a working tree and
+unreliable after `git clone`, unpacking an archive, or `rsync` (all writers stamp
+"now"). Measured: the same example reports `1 PASS / 2 DIFF` in a working copy and
+`2 PASS / 1 DIFF` after a fresh clone. Use it locally; do not build a CI gate on it.
+
 ## Plugin: prose (Chinese)
 
 `evidgate prose scan --rule <name>` — exits `0` clean, `2` blocking, `3` advisory:

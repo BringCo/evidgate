@@ -16,6 +16,7 @@ checks:
     name: 派生物未过期（不旧于源）
     method: builtin:artifact:stale artifacts.json
     expect: exit:0
+    # 依赖 mtime：工作区里会变黄；git clone 后 mtime 全被重置，本项可能变干净
     counter: build/report.pdf 的 mtime 早于 src/report.md，本项必须变黄（示例里就是这样）
     severity: yellow
 
