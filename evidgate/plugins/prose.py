@@ -14,12 +14,14 @@ import re
 import sys
 from typing import List, Tuple
 
-SKIP_PREFIX = ("#", ">", "|", "-", "!", "```", "$$", "$")
+SKIP_PREFIX = ("#", ">", "|", "-", "!", "```", "$$", "$", "注：", "图注", "虚线", "实线", "点线")
 SENT_SPLIT = re.compile(r"(?<=[。；！？])")
 
 CITE = re.compile(r"\[\d+\]|（[^）]*\d{4}[^）]*）")
 CHART = re.compile(r"§\s*\d|第\s*\d+\s*节|图\s*\d|表\s*\d|公式|表\s*注")
-STAT = re.compile(r"p\s*[=<>≈]|\b\d+\s*/\s*\d+\b|n\s*=|±|\bHolm\b|\bBH\b|\bpp\b|seed|划分|基线|对照组")
+STAT = re.compile(r"p\s*[=<>≈]|p\([A-Za-z]+\)\s*[=<>≈]|\b\d+\s*/\s*\d+\b|n\s*=|±|"
+                   r"\bHolm\b|\bBH\b|\bpp\b|seed|划分|基线|对照组|"
+                   r"\bS\d+[a-z]?\b|split\s*\d|\d[\d,]*\s*(窗|块|个|条|张|组)")
 SCOPE_WORD = re.compile(r"实测|复算|协议|消融|逐\s*(组|单元|cell)|全池|均值|中位|批次|脚本|路径|本文|我们|口径|汇报|惯例|定义|设定|划分|seed|基线")
 CLAIM = re.compile(r"(表明|说明|证明|意味着|取决于)")
 # "本文/我们 ... 首次/首创" or "首次/首创 + 首创类动词" -- descriptive uses of 首次/唯一
@@ -117,6 +119,12 @@ def rule_citation_chain(text: str) -> List[str]:
     listed = {int(x) for x in re.findall(r"^\s*\[(\d+)\]", refs, re.M)}
     if not listed:
         listed = {int(x) for x in re.findall(r"\[(\d+)\]", refs)}
+    if cited and not listed:
+        # the bibliography uses another scheme (author-year, "1." numbering, EndNote
+        # paste). Saying 38 times "reference missing" would be a false alarm barrage;
+        # say once that the scheme was not recognised.
+        return [f"文献表制式未被识别：正文有 {len(cited)} 处 [n] 编号，但文献表里没有 [n]。"
+                f"本规则只支持编号制；该文献表可能是作者-年份制或其他格式。"]
     missing = sorted(cited - listed)
     unused = sorted(listed - cited)
     hits = [f"正文引用 [{n}] 在文献表中不存在" for n in missing]

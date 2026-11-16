@@ -2,6 +2,17 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.5.2 — 2026-11-16
+
+### Fixed (found by running against real drafts, not examples)
+- `citation_chain` fired **38 times** on an English manuscript whose bibliography uses a
+  non-`[n]` scheme. It now recognises "the scheme is unknown" and says so **once**
+  ("正文有 38 处 [n] 编号，但文献表里没有 [n]") instead of emitting 38 false alarms.
+- Evidence markers extended to the forms a real manuscript actually uses: `(S5)`
+  provenance codes, `p(t)=`, `7,234 窗` / `12 块电池` (counts with units), `split0–2`,
+  and figure-caption lines (`虚线为…`) are no longer scanned as body assertions.
+  Effect on the 581-sentence draft: 28 → 22 findings.
+
 ## 0.5.1 — 2026-11-16
 
 ### Added
