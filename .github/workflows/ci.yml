@@ -22,14 +22,19 @@ jobs:
       - name: unit tests
         run: python -m unittest discover -s tests -v
 
-      - name: examples block as designed (exit 1 is the expected result)
+      - name: every example blocks as designed (exit 1 is the expected result)
         run: |
           set +e
-          ./bin/evidgate run --dir examples/mixed > /tmp/mixed.txt 2>&1
-          rc=$?
-          cat /tmp/mixed.txt
-          test "$rc" -eq 1
-          grep -q "RELEASE BLOCKED" /tmp/mixed.txt
+          for d in examples examples/mixed examples/artifact; do
+            out="/tmp/$(basename "$d").txt"
+            ./bin/evidgate run --dir "$d" > "$out" 2>&1
+            rc=$?
+            echo "=== $d (rc=$rc) ==="
+            cat "$out"
+            test "$rc" -eq 1 || { echo "expected exit 1 from $d"; exit 1; }
+            grep -q "RELEASE BLOCKED" "$out" || { echo "no RELEASE BLOCKED in $d"; exit 1; }
+            grep -q "^PASS " "$out" || { echo "no summary line in $d"; exit 1; }
+          done
 
       - name: doctor is green on every example
         run: |

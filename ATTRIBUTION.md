@@ -14,9 +14,10 @@ The rules "fresh / verifiable / traceable", "PASS · DIFF(yellow) · FAIL(red)",
   repository on 2026-11-16). Content pulled 2026-09-19; locally reorganised,
   translated and extended for document deliverables.
 
-  The upstream MIT permission notice and copyright line above apply to the
-  parts this project derived from that work. The full upstream license text is
-  at <https://github.com/obra/superpowers/blob/main/LICENSE>.
+  The upstream MIT license text is reproduced in full at
+  `LICENSES/obra-superpowers-MIT.txt`, including its copyright line
+  `Copyright (c) 2025 Jesse Vincent`. That license covers the parts of this
+  project derived from that work.
 
 evidgate keeps those ideas and makes them executable. It does not claim to
 have invented them.

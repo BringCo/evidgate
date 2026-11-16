@@ -11,7 +11,7 @@ from typing import Dict, List
 from . import __version__
 from .core import builtin
 from .core.check import load_checks
-from .core.gate import FAIL, LABEL, PENDING, PASS, summarize, release_allowed, run_check
+from .core.gate import FAIL, LABEL, PENDING, PASS, SKIP, summarize, release_allowed, run_check
 from .core.gate import Verdict
 from .ledger import build, load_rows, resume_cids
 from .plugins import prose
@@ -263,6 +263,7 @@ def cmd_report(a) -> int:
     fails = [c.cid for c in checks if verdicts.get(c.cid) and verdicts[c.cid].status == FAIL]
     pend = [c.cid for c in checks if not verdicts.get(c.cid) or verdicts[c.cid].status == PENDING]
     yellows = [c.cid for c in checks if verdicts.get(c.cid) and verdicts[c.cid].status == "DIFF"]
+    skips = [c.cid for c in checks if verdicts.get(c.cid) and verdicts[c.cid].status == SKIP]
     out = [
         f"# release gate report · {project}", "",
         "## 1. 检查表", "", "| cid | check | status | evidence |", "|---|---|---|---|",
@@ -273,14 +274,21 @@ def cmd_report(a) -> int:
                    f"{(v.detail if v else '—')[:120]} |")
     out += ["", "## 2. 待确认（黄项）", ""]
     out += [f"- {cid}" for cid in yellows] or ["- 无"]
-    out += ["", "## 3. 未覆盖 / 待补", ""]
-    out += [f"- {cid}" for cid in pend] or ["- 无"]
+    out += ["", "## 3. 待补与未覆盖", ""]
+    out.append("**待补（没核过）**：" + ("、".join(pend) if pend else "无"))
+    out.append("")
+    out.append("**未覆盖（optional/不适用，不阻塞）**：" + ("、".join(skips) if skips else "无"))
     out += ["", "## 4. 放行结论", ""]
-    out.append("- **可进下一阶段**" if not fails and not pend else
-               f"- **不可放行**：红项 {fails or '无'}；待补 {pend or '无'}")
-    p = os.path.join(a.dir, "gate_report.md")
-    open(p, "w", encoding="utf-8", newline="\n").write("\n".join(out) + "\n")
-    print(f"wrote {p}")
+    if fails or pend:
+        out.append(f"- **不可放行**：红项 {fails or '无'}；待补 {pend or '无'}")
+    else:
+        out.append("- **可进下一阶段**")
+    if skips:
+        out.append(f"- 另有 {len(skips)} 项未覆盖（{', '.join(skips)}）：不阻塞，但确实没验过")
+    report_path = os.path.join(a.dir, "gate_report.md")
+    with open(report_path, "w", encoding="utf-8", newline=chr(10)) as fh:
+        fh.write("\n".join(out) + "\n")
+    print(f"wrote {report_path}")
     return 0 if not fails and not pend else 1
 
 

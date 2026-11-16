@@ -32,7 +32,7 @@ One line per user-visible change. Dates are when the change landed.
   percentage.
 - `init` generated a check against a file the project did not have.
 
-## 0.1.0 — 2026-11-16
+## 0.1.0 — 2026-11-16 (never published; first release was 0.2.0)
 
 - `core`: check registry, evidence (command/exit code/output tail/artifact
   hash/timestamp), three-state verdicts, release rule.
@@ -41,4 +41,4 @@ One line per user-visible change. Dates are when the change landed.
   citation_chain.
 - `mutate`: run the same checks against a baseline and a planted-defect copy,
   report detection power.
-- Examples (fictional), 19 tests, ATTRIBUTION, skill adapter, MIT license.
+- Examples (fictional), initial test suite, ATTRIBUTION, skill adapter, MIT license.

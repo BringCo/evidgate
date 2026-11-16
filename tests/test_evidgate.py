@@ -273,3 +273,32 @@ class TestArtifactPlugin(unittest.TestCase):
             ev = collect("builtin:artifact:orphan artifacts.json --dir .", cwd=d)
         self.assertNotIn("evidgate.yaml", ev.stdout)
         self.assertIn("note.txt", ev.stdout)
+
+
+class TestReportCoversSkip(unittest.TestCase):
+    """The report is the artifact a human reads; SKIP items must not vanish from it."""
+
+    def test_skip_and_pending_listed_separately(self):
+        import contextlib
+        import io
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
+                fh.write(
+                    "project: t\nledger: l.md\nchecks:\n"
+                    "  - cid: S1\n    name: optional-fails\n    method: 'false'\n"
+                    "    expect: exit:0\n    counter: x\n    severity: red\n"
+                    "    optional: true\n"
+                    "  - cid: R1\n    name: needs-a-human\n    method: 'true'\n"
+                    "    expect: manual\n    counter: x\n    severity: red\n")
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["run", "--dir", d])
+                main(["report", "--dir", d])
+            with open(os.path.join(d, "gate_report.md"), encoding="utf-8") as fh:
+                rep = fh.read()
+        self.assertIn("S1", rep)
+        self.assertIn("R1", rep)
+        self.assertIn("未覆盖", rep)
+        self.assertIn("待补", rep)
+        # guard against the report collapsing into one line of literal \n
+        self.assertGreater(rep.count("\n"), 10, "report is not multi-line")
