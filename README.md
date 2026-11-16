@@ -106,8 +106,9 @@ figure sources. This tool is for **the last look before you hand something over*
 
 - You are about to hand a draft, a report, an application package or a build directory to
   someone who will ask "where did this number come from?"
-- You work across several windows or agents, and "done" from another context is a claim
-  you would like to check rather than trust.
+- An agent produced the deliverable, and "done" arrived as one sentence with no command
+  behind it. The same holds across your own windows: a claim from another context is
+  something to check, not to trust.
 - You already run tests and linters, and none of them leave a record of *what was
   verified, with which command, when*.
 
@@ -118,6 +119,21 @@ figure sources. This tool is for **the last look before you hand something over*
   `deliverable-qa` have far more rules for that.
 - **Auditing mature repositories** — expect zero findings.
 - **Approval workflows** — no roles, no multi-user sign-off; this is a single-user CLI.
+
+## Install as an agent skill
+
+`skill/evidgate/SKILL.md` is a written instruction set for an agent: when to reach for
+the tool, the first-run commands, what a check looks like, and the three shapes of false
+green. Copy or link the directory into your agent's skills folder:
+
+```bash
+cp -r skill/evidgate ~/.hermes/skills/                   # Hermes
+ln -s "$PWD/skill/evidgate" ~/.hermes/skills/evidgate    # or link instead of copying
+```
+
+After that, an instruction as short as "run evidgate before you tell me it is done" has
+something concrete behind it. `evidgate run` exits 1 when blocked, and an agent that
+reports success off a non-zero run is doing precisely what this tool exists to catch.
 
 ## Commands
 
