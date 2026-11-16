@@ -28,6 +28,15 @@ class Finding:
     note: str = ""
 
 
+def _stems(root: str, ext: str) -> set:
+    """Basenames (without extension) of files with this extension, anywhere."""
+    out = set()
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d != ".git"]
+        out |= {os.path.splitext(f)[0] for f in filenames if f.lower().endswith(ext)}
+    return out
+
+
 def _count(root: str, ext: str) -> int:
     """Count files by extension anywhere under root (skipping .git)."""
     total = 0
@@ -56,12 +65,16 @@ def probe(root: str = ".") -> Dict[str, object]:
 
     # 1. figures: a vector source plus a raster/print derivative somewhere in the tree
     svg, png, pdf = _count(root, ".svg"), _count(root, ".png"), _count(root, ".pdf")
-    if svg and (png or pdf):
+    # Only a shared basename proves a derivative relationship (a.svg -> a.png).
+    # A tree with unrelated svgs and pngs has nothing for the figures pack to guard:
+    # it would go green on an empty check set, which is worse than saying nothing.
+    paired = (_stems(root, ".svg") & (_stems(root, ".png") | _stems(root, ".pdf")))
+    if svg and (png or pdf) and paired:
         where = next((n for n in FIG_DIRS if os.path.isdir(os.path.join(root, n))), ".")
         findings.append(Finding(
-            what=f"{where} 一带：{svg} 个 svg、{png} 个 png、{pdf} 个 pdf",
+            what=f"{where} 一带：{svg} 个 svg、{png} 个 png、{pdf} 个 pdf，其中 {len(paired)} 组同名",
             packs=["figures"],
-            note="一个源 + 多个派生 —— 正是 figures 包要盯的结构"))
+            note=f"同名即派生（如 {sorted(paired)[0]}.svg → {sorted(paired)[0]}.png）—— figures 包要盯的就是这个"))
         packs.append("figures")
 
     # 2. build output directories
@@ -148,10 +161,4 @@ def render(result: Dict[str, object]) -> str:
     else:
         lines.append("没有现成的包能覆盖上面这些 —— 需要自己写检查项。")
 
-    extra = [f for f in findings if not f.packs]
-    if extra:
-        lines.append("")
-        lines.append("包之外还要你补的：")
-        for f in extra:
-            lines.append(f"  · {f.what}：{f.note}")
     return "\n".join(lines)

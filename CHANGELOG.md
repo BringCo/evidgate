@@ -2,6 +2,41 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.8.1 — 2026-11-16
+
+### Fixed from a horizontal run over eight real repositories
+
+| repo | files | `build` | `figures` | `prose` |
+|---|---|---|---|---|
+| `lightning-hydra-template` | 114 | 3 PASS · 0.79 s | — | — |
+| `IDSIA/sacred` | 201 | 3 PASS · 0.77 s | — | — |
+| `the-nix-way/dev-templates` | 131 | 3 PASS · 0.62 s | — | — |
+| `jlevy/the-art-of-command-line` | 52 | 3 PASS · 0.57 s | — | uncited 1/56 |
+| `sindresorhus/awesome` | 52 | 3 PASS · 0.52 s | 3 PASS · 0.60 s | — |
+| `google/styleguide` | 78 | 3 PASS · 0.54 s | — | — |
+| `chubin/cheat.sh` | 154 | 3 PASS · 0.59 s | — | — |
+| `karpathy/nanoGPT` | 55 | 3 PASS · 0.64 s | — | — |
+
+What that run changed:
+
+- **`suggest` demanded proof of a derivative relationship.** `awesome` has six unrelated
+  SVGs and two PNGs, and the old rule ("any svg + any raster") recommended the `figures`
+  pack for a tree where *nothing derives from anything* — the pack then went green on an
+  empty check set, which is worse than staying quiet. It now requires a shared basename
+  (`a.svg` + `a.png`). `awesome` still qualifies on its one real pair; a tree with no
+  pairs no longer gets the recommendation.
+- **`CLAIM` no longer includes 意味着.** On a real Chinese README it fired on
+  「你 *有能力* 在 Bash 中玩一些奇技淫巧并不意味着你应该去做」— ordinary prose, not a
+  claim about evidence. Removed; that document goes 1 finding → 0, and the 581-sentence
+  manuscript still reports the same 2 findings.
+- `suggest` printed each bibliography note twice; the duplicate block is gone.
+
+### Honest result
+The `build` pack found **nothing** in eight mature open-source repositories. That is not a
+bug — those projects do not commit credentials or leave `.bak` files around. It does mean
+the pack's value is in **personal deliverables before hand-over**, not in auditing
+established projects, and the README should not imply otherwise.
+
 ## 0.8.0 — 2026-11-16
 
 ### Added — `evidgate suggest`
