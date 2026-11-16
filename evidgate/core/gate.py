@@ -72,13 +72,15 @@ def evaluate(check: Check, ev: Evidence, cwd: str = ".") -> Tuple[str, str]:
         elif kind == "regex":
             m = re.search(arg, ev.stdout, re.M)
             good = bool(m)
-            note = f"regex {'OK' if good else 'MISS'} ─ {arg}" + (f" -> {m.group(0)[:40]}" if m else "")
+            note = f"regex {'OK' if good else 'MISS'} ─ {arg}"
+            if m:
+                note += f" -> {m.group(0)[:40]}"
         elif kind == "lines>=":
-            n = len([l for l in ev.stdout.splitlines() if l.strip()])
+            n = len([line for line in ev.stdout.splitlines() if line.strip()])
             good = n >= int(arg)
             note = f"lines {n} (want >={arg})"
         elif kind == "lines<=":
-            n = len([l for l in ev.stdout.splitlines() if l.strip()])
+            n = len([line for line in ev.stdout.splitlines() if line.strip()])
             good = n <= int(arg)
             note = f"lines {n} (want <={arg})"
         elif kind == "file":

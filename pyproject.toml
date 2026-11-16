@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,12 +8,12 @@ version = "0.9.1"
 description = "Evidence gates for deliverables: every claim gets a command, an exit code, and a ledger line."
 readme = "README.md"
 requires-python = ">=3.9"
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "BringCo"}]
 keywords = ["evidence", "gate", "audit", "ledger", "reproducibility", "documentation"]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Topic :: Documentation",
   "Topic :: Software Development :: Testing",
@@ -32,3 +32,19 @@ include = ["evidgate*"]
 
 [tool.setuptools.package-data]
 evidgate = ["packs/*.yaml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+exclude = ["build", "dist", "examples", ".git"]
+
+[tool.ruff.lint]
+# Core rules only: pycodestyle, pyflakes, warnings, import order. Chasing zero on the
+# stylistic sets costs more than it catches, and this project has no lint baseline yet.
+select = ["E", "F", "W", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# tests put the repo root on sys.path before importing the package on purpose.
+"tests/*" = ["E402"]
+# `l` as a loop variable is fine in a line/row table helper.
+"evidgate/ledger/table.py" = ["E741"]

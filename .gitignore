@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 **/evidgate_ledger.md
 **/gate_report.md
+.coverage
+.coverage.*
+htmlcov/

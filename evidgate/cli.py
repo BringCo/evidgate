@@ -7,13 +7,22 @@ import os
 import re
 import shutil
 import sys
-from typing import Dict, List
+from typing import Dict
 
 from . import __version__
 from .core import builtin
 from .core.check import load_checks
-from .core.gate import FAIL, LABEL, PENDING, PASS, SKIP, summarize, release_allowed, run_check
-from .core.gate import Verdict
+from .core.gate import (
+    FAIL,
+    LABEL,
+    PASS,
+    PENDING,
+    SKIP,
+    Verdict,
+    release_allowed,
+    run_check,
+    summarize,
+)
 from .ledger import build, load_rows, resume_cids
 from .plugins import prose
 
@@ -103,6 +112,19 @@ def _load(dir_: str):
     packs = cfg.get("packs") or []
     if isinstance(packs, str):
         packs = [x.strip() for x in packs.strip("[]").split(",") if x.strip()]
+    elif isinstance(packs, dict):
+        # `packs:` written as a mapping, which is what YAML users reach for first.
+        # Both shapes are accepted, and neither may silently fall back to defaults:
+        #   packs: {repo: "test_cmd=...", figures: ""}
+        #   packs: {repo: {test_cmd: "..."}}
+        norm = []
+        for name, opts in packs.items():
+            if isinstance(opts, dict):
+                pairs = ",".join(f"{k}={v}" for k, v in opts.items())
+            else:
+                pairs = str(opts or "").strip().strip("{}")
+            norm.append(f"{name}:{pairs}" if pairs else str(name))
+        packs = norm
     try:
         checks = load_checks(cfg_path, allow_empty=bool(packs))
     except ValueError as exc:
@@ -162,7 +184,8 @@ def cmd_init(a) -> int:
         print(f"next: evidgate run --dir {d}")
         return 0
     target = next((c for c in CANDIDATES if os.path.exists(os.path.join(d, c))), None)
-    body = (TPL_ACTIVE if target else TPL_EMPTY).format(project=project, target=target or "report.md")
+    tpl = TPL_ACTIVE if target else TPL_EMPTY
+    body = tpl.format(project=project, target=target or "report.md")
     if os.path.exists(p) and not a.force:
         print(f"{p} exists (use --force to overwrite)")
     else:
@@ -328,9 +351,11 @@ def cmd_doctor(a) -> int:
         if posix:
             print(f"         探测到 Git Bash：{posix}")
         if bash:
-            print(f"         本机有 bash（{bash}），但 evidgate 当前不会用它；Windows 请优先用 builtin: 检查项")
+            print(f"         本机有 bash（{bash}），但 evidgate 不会用它；"
+                  "Windows 请优先用 builtin: 检查项")
         else:
-            print("         建议：安装 Git Bash，或把检查项换成 builtin:（build/repo 包已提供 builtin 版）")
+            print("         建议：安装 Git Bash，或把检查项换成 builtin:"
+                  "（build/repo 包已提供 builtin 版）")
     else:
         posix = _sh.which("bash") or _sh.which("sh") or "(none)"
         print(f"  [OK  ] 默认不经 shell 执行；声明 shell: bash 时用 {posix}")

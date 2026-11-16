@@ -13,7 +13,7 @@ import os
 import time
 from typing import Callable, Dict, List, Tuple
 
-from .evidence import Artifact, Evidence
+from .evidence import Evidence
 
 PLUGINS: Dict[str, Dict[str, Callable]] = {}
 
@@ -29,9 +29,8 @@ def is_builtin(method: str) -> bool:
 def _load_default_plugins() -> None:
     if PLUGINS:
         return
-    from ..plugins import prose
     # each builtin entry takes (path) and returns an exit code; prose.scan is that entry
-    from ..plugins import artifact
+    from ..plugins import artifact, prose
     register("prose", {rule: (lambda argv, _r=rule: prose.scan(argv[0], _r))
                        for rule in prose.RULES})
     register("artifact", {rule: (lambda argv, _r=rule: artifact.run(_r, argv))

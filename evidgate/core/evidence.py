@@ -35,7 +35,7 @@ class Evidence:
     not_found_hint: str = ""
 
     def key_output(self, n: int = 3) -> str:
-        lines = [l for l in self.stdout.splitlines() if l.strip()]
+        lines = [line for line in self.stdout.splitlines() if line.strip()]
         return redact(" | ".join(lines[-n:]))[:400]
 
     def missing(self, needs_stdout: bool = False) -> List[str]:
@@ -122,7 +122,6 @@ def _md5(path: str) -> str:
 
 def _split_argv(command: str) -> List[str]:
     """Split a command into argv without a shell (the default path)."""
-    import shlex
     try:
         return shlex.split(command, posix=True)
     except ValueError as exc:

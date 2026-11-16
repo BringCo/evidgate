@@ -22,12 +22,19 @@ CHART = re.compile(r"§\s*\d|第\s*\d+\s*节|图\s*\d|表\s*\d|公式|表\s*注"
 STAT = re.compile(r"p\s*[=<>≈]|p\([A-Za-z]+\)\s*[=<>≈]|\b\d+\s*/\s*\d+\b|n\s*=|±|"
                    r"\bHolm\b|\bBH\b|\bpp\b|seed|划分|基线|对照组|"
                    r"\bS\d+[a-z]?\b|split\s*\d|\d[\d,]*\s*(窗|块|个|条|张|组)")
-SCOPE_WORD = re.compile(r"实测|复算|协议|消融|逐\s*(组|单元|cell)|全池|均值|中位|批次|脚本|路径|本文|我们|口径|汇报|惯例|定义|设定|划分|seed|基线")
-CLAIM = re.compile(r"(表明|说明|证明|取决于)")   # 意味着 is ordinary Chinese prose, not a claim verb
+SCOPE_WORD = re.compile(
+    r"实测|复算|协议|消融|逐\s*(组|单元|cell)|全池|均值|中位|批次|脚本|路径|本文|我们|口径|汇报"
+    r"|惯例|定义|设定|划分|seed|基线")
+# 意味着 is ordinary Chinese prose, not a claim verb
+CLAIM = re.compile(r"(表明|说明|证明|取决于)")
 # "本文/我们 ... 首次/首创" or "首次/首创 + 首创类动词" -- descriptive uses of 首次/唯一
 # (first drop below 0.8, the only negative gap) are not priority claims and must not fire.
-ABS_SELF = re.compile(r"(本文|我们|本工作|本研究|本方法)\s*[^，。；]{0,10}(首次|首创|最先|率先|前所未有)")
-ABS_VERB = re.compile(r"(首次|首创|最先|率先|前所未有)\s*(提出|实现|证明|报道|引入|建立|完成|构建|给出)")
+ABS_SELF = re.compile(
+    r"(本文|我们|本工作|本研究|本方法)\s*[^，。；]{0,10}"
+    r"(首次|首创|最先|率先|前所未有)")
+ABS_VERB = re.compile(
+    r"(首次|首创|最先|率先|前所未有)\s*"
+    r"(提出|实现|证明|报道|引入|建立|完成|构建|给出)")
 ABS_SCOPE = re.compile(r"(检索日期|query|本协议|范围内|据我们|目前可检索|就本文所见)")
 NUMSTAT = re.compile(r"(ρ|r\s*=|R²|相关系数|\d+\.?\d*\s*%)|"
                      r"((提升|降低|下降|增加|减少|高出|低于|降幅|增益|误差)\s*[约]?\s*[+\-−]?\d)")

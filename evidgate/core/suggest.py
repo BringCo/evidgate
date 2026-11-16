@@ -70,7 +70,6 @@ def probe(root: str = ".") -> Dict[str, object]:
     entries = os.listdir(root) if os.path.isdir(root) else []
 
     # 1. figures: a vector source plus a raster/print derivative somewhere in the tree
-    svg, png, pdf = _count(root, ".svg"), _count(root, ".png"), _count(root, ".pdf")
     # Only a shared basename proves a derivative relationship (a.svg -> a.png).
     # A tree with unrelated svgs and pngs has nothing for the figures pack to guard:
     # it would go green on an empty check set, which is worse than saying nothing.
@@ -176,7 +175,7 @@ def render(result: Dict[str, object]) -> str:
     lines.append("")
     if packs:
         spec = ", ".join(packs)
-        lines.append(f"建议在 evidgate.yaml 里写一行：")
+        lines.append("建议在 evidgate.yaml 里写一行：")
         lines.append(f"    packs: {spec}")
         lines.append("")
         lines.append(f"生成它：evidgate init --packs {spec.replace(', ', ',')}")

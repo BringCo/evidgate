@@ -9,8 +9,7 @@ sys.path.insert(0, ROOT)
 
 from evidgate.core.check import Check, _mini_yaml, load_checks
 from evidgate.core.evidence import Evidence, collect
-from evidgate.core.gate import (DIFF, FAIL, PASS, PENDING, evaluate,
-                                release_allowed, run_check)
+from evidgate.core.gate import DIFF, FAIL, PASS, PENDING, evaluate, release_allowed, run_check
 from evidgate.ledger import build, load_rows, resume_cids
 
 
@@ -24,7 +23,8 @@ class TestCounterTestDiscipline(unittest.TestCase):
     def test_load_refuses_missing_counter(self):
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "g.yaml")
-            open(p, "w").write("checks:\n  - cid: C1\n    name: n\n    method: true\n    expect: exit:0\n")
+            open(p, "w").write(
+                "checks:\n  - cid: C1\n    name: n\n    method: true\n    expect: exit:0\n")
             with self.assertRaises(ValueError):
                 load_checks(p)
 
@@ -33,7 +33,7 @@ class TestMiniYaml(unittest.TestCase):
     def test_parses_the_example_without_pyyaml(self):
         with open(os.path.join(ROOT, "examples", "evidgate.yaml"), encoding="utf-8") as fh:
             text = fh.read()
-        data = _mini_yaml.__wrapped__(text) if hasattr(_mini_yaml, "__wrapped__") else None
+        _parsed = _mini_yaml.__wrapped__(text) if hasattr(_mini_yaml, "__wrapped__") else None
         # exercise the dependency-free branch directly
         import evidgate.core.check as ch
         real = ch.yaml if hasattr(ch, "yaml") else None
@@ -94,7 +94,7 @@ class TestLedger(unittest.TestCase):
         v = {c.cid: run_check(c, cwd=ROOT) for c in checks}
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "l.md")
-            a = build(p, checks, v, "demo")
+            build(p, checks, v, "demo")
             with open(p, "rb") as fh:
                 b1 = fh.read()
             build(p, checks, v, "demo")
@@ -155,8 +155,9 @@ class TestDiagnosability(unittest.TestCase):
         self.assertIn("命令未找到", v.detail)
 
     def test_doctor_flags_missing_command(self):
-        import io
         import contextlib
+        import io
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
@@ -181,8 +182,9 @@ class TestOptionalSkip(unittest.TestCase):
 
 class TestInitAdaptive(unittest.TestCase):
     def test_empty_dir_gets_commented_template(self):
-        import io
         import contextlib
+        import io
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             with contextlib.redirect_stdout(io.StringIO()):
@@ -195,8 +197,9 @@ class TestInitAdaptive(unittest.TestCase):
             self.assertIn("没有任何启用", str(ctx.exception))
 
     def test_existing_file_gets_a_runnable_check(self):
-        import io
         import contextlib
+        import io
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "draft.md"), "w", encoding="utf-8") as fh:
@@ -243,7 +246,8 @@ class TestArtifactPlugin(unittest.TestCase):
     def test_rules(self):
         with tempfile.TemporaryDirectory() as d:
             self._project(d)
-            self.assertEqual(collect("builtin:artifact:manifest artifacts.json", cwd=d).exit_code, 0)
+            self.assertEqual(
+                collect("builtin:artifact:manifest artifacts.json", cwd=d).exit_code, 0)
             self.assertEqual(collect("builtin:artifact:stale artifacts.json", cwd=d).exit_code, 3)
             self.assertEqual(collect("builtin:artifact:sync artifacts.json", cwd=d).exit_code, 2)
             ev = collect("builtin:artifact:orphan artifacts.json --dir .", cwd=d)
@@ -281,6 +285,7 @@ class TestReportCoversSkip(unittest.TestCase):
     def test_skip_and_pending_listed_separately(self):
         import contextlib
         import io
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
@@ -346,6 +351,7 @@ class TestArtifactStaleByHash(unittest.TestCase):
         """artifact-update refreshes hashes; it must NOT declare a derivative fresh."""
         import contextlib
         import io
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             sp = self._mk(d)
@@ -463,6 +469,7 @@ class TestStampingIsExplicit(unittest.TestCase):
     def test_update_does_not_launder_a_stale_derivative(self):
         import contextlib
         import io
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             self._proj(d)
@@ -475,6 +482,7 @@ class TestStampingIsExplicit(unittest.TestCase):
     def test_stamp_after_real_regeneration_clears_it(self):
         import contextlib
         import io
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             dp = self._proj(d)
@@ -505,6 +513,7 @@ class TestStampingIsExplicit(unittest.TestCase):
         import contextlib
         import io
         import json
+
         from evidgate.cli import main
         with tempfile.TemporaryDirectory() as d:
             self._proj(d)
@@ -592,6 +601,7 @@ class TestPacks(unittest.TestCase):
 
     def test_pack_only_project_may_have_no_own_checks(self):
         import tempfile
+
         from evidgate.core.check import load_checks
         with tempfile.TemporaryDirectory() as d:
             cfg = os.path.join(d, "evidgate.yaml")
@@ -641,10 +651,12 @@ class TestMissingCommand(unittest.TestCase):
 
     def test_missing_tool_detection_across_shells(self):
         from evidgate.core.evidence import _decode, _missing_tool
-        gbk = _decode(b"'grep' \xb2\xbb\xca\xc7\xc4\xda\xb2\xbf\xbb\xf2\xcd\xe2\xb2\xbf\xc3\xfc\xc1\xee")
+        gbk = _decode(
+            b"'grep' \xb2\xbb\xca\xc7\xc4\xda\xb2\xbf\xbb\xf2\xcd\xe2\xb2\xbf\xc3\xfc\xc1\xee")
         self.assertTrue(_missing_tool(127, "bash: grep: command not found"))
         self.assertTrue(_missing_tool(127, "sh: 1: grep: not found"))
-        self.assertTrue(_missing_tool(1, "'grep' is not recognized as an internal or external command"))
+        self.assertTrue(
+            _missing_tool(1, "'grep' is not recognized as an internal or external command"))
         self.assertTrue(_missing_tool(1, gbk), "a GBK console must be decoded before matching")
         self.assertFalse(_missing_tool(1, ""))
         self.assertFalse(_missing_tool(2, "grep: dist: No such file or directory"))
@@ -684,7 +696,9 @@ class TestSuggest(unittest.TestCase):
     """Suggest reads the disk; it must not invent work that is not there."""
 
     def test_figure_tree_suggests_the_figures_pack(self):
-        import tempfile, os
+        import os
+        import tempfile
+
         from evidgate.core.suggest import probe
         with tempfile.TemporaryDirectory() as d:
             os.makedirs(os.path.join(d, "figs"))
@@ -694,14 +708,18 @@ class TestSuggest(unittest.TestCase):
             self.assertIn("figures", probe(d)["packs"])
 
     def test_readme_alone_is_not_a_document_to_audit(self):
-        import tempfile, os
+        import os
+        import tempfile
+
         from evidgate.core.suggest import probe
         with tempfile.TemporaryDirectory() as d:
             open(os.path.join(d, "README.md"), "w").write("# hi\n")
             self.assertEqual(probe(d)["findings"], [])
 
     def test_ledger_is_not_counted_as_a_document(self):
-        import tempfile, os
+        import os
+        import tempfile
+
         from evidgate.core.suggest import probe
         with tempfile.TemporaryDirectory() as d:
             open(os.path.join(d, "evidgate_ledger.md"), "w").write("# x\n")
@@ -709,8 +727,10 @@ class TestSuggest(unittest.TestCase):
             self.assertEqual(probe(d)["findings"], [])
 
     def test_write_produces_a_runnable_packs_config(self):
-        import tempfile, os, subprocess, sys
-        E = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bin", "evidgate")
+        import os
+        import subprocess
+        import sys
+        import tempfile
         with tempfile.TemporaryDirectory() as d:
             os.makedirs(os.path.join(d, "figs"))
             os.makedirs(os.path.join(d, "png"))
@@ -727,10 +747,14 @@ class TestNoDerivativesIsNotGreen(unittest.TestCase):
     """A manifest of 172 sources must not read as "my figures are in order"."""
 
     def test_derivatives_rule_flags_an_all_source_manifest(self):
-        import json, tempfile, os
+        import json
+        import os
+        import tempfile
+
         from evidgate.plugins import artifact
         with tempfile.TemporaryDirectory() as d:
-            f = os.path.join(d, "a.png"); open(f, "w").write("x")
+            f = os.path.join(d, "a.png")
+            open(f, "w").write("x")
             man = os.path.join(d, "artifacts.json")
             json.dump({"root": ".", "items": [{"path": "a.png", "role": "source"}]},
                       open(man, "w"))
@@ -739,7 +763,10 @@ class TestNoDerivativesIsNotGreen(unittest.TestCase):
             self.assertIn("没有任何派生项", hits[0])
 
     def test_derivatives_rule_accepts_a_declared_source(self):
-        import json, tempfile, os
+        import json
+        import os
+        import tempfile
+
         from evidgate.plugins import artifact
         with tempfile.TemporaryDirectory() as d:
             for name in ("a.svg", "a.png"):
@@ -751,7 +778,11 @@ class TestNoDerivativesIsNotGreen(unittest.TestCase):
             self.assertEqual(artifact.rule_derivatives(man), [])
 
     def test_emacs_lock_files_and_dangling_links_do_not_abort_the_scan(self):
-        import os, subprocess, sys, tempfile, json
+        import json
+        import os
+        import subprocess
+        import sys
+        import tempfile
         with tempfile.TemporaryDirectory() as d:
             open(os.path.join(d, "real.txt"), "w").write("x")
             os.symlink(os.path.join(d, "nope"), os.path.join(d, ".#broken"))
@@ -821,3 +852,27 @@ class TestStarterTemplateAndDoctor(unittest.TestCase):
         from evidgate.cli import _needs_shell
         self.assertTrue(_needs_shell('test -n "$(ls -A out 2>/dev/null)"'))
         self.assertFalse(_needs_shell("test -n '$(not-expanded)'"))
+
+    def test_packs_written_as_a_mapping_pass_their_parameters(self):
+        """A dict under `packs:` must not silently fall back to the pack defaults."""
+        from evidgate.cli import _load
+        cfg = ("project: t\nledger: l.md\npacks:\n  repo:\n"
+               "    test_cmd: python3 -m unittest discover -s tests\n")
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
+                fh.write(cfg)
+            _, checks, _, _ = _load(d)
+            methods = {c.cid: c.method for c in checks}
+            self.assertIn("GR1", methods, methods)
+            self.assertIn("unittest", methods["GR1"], methods["GR1"])
+
+    def test_packs_string_form_still_works(self):
+        from evidgate.cli import _load
+        cfg = ("project: t\nledger: l.md\n"
+               "packs: repo:test_cmd=python3 -m unittest discover -s tests\n")
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
+                fh.write(cfg)
+            _, checks, _, _ = _load(d)
+            methods = {c.cid: c.method for c in checks}
+            self.assertIn("unittest", methods["GR1"], methods["GR1"])
