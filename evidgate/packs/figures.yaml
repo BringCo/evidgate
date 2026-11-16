@@ -1,0 +1,22 @@
+# pack: figures — 一个源、多种派生的产物目录（svg -> png/pdf/eps）
+checks:
+  - cid: GF1
+    name: 派生登记齐全且未被手改（{manifest}）
+    method: builtin:artifact:manifest {manifest}
+    expect: exit:0
+    counter: 手改任一派生文件的字节后，本项必须变红
+    severity: red
+    note: 登记与哈希都写在 {manifest} 里；用 evidgate artifact-init 生成初稿
+  - cid: GF2
+    name: 派生是否跟随源的变化
+    method: builtin:artifact:stale {manifest}
+    expect: exit:0
+    counter: 改源但不重新生成派生后，本项必须变黄
+    severity: yellow
+    note: 从未盖过章的派生只会报「无法判断」，不算错
+  - cid: GF3
+    name: {outdir}/ 里没有漏纳管的文件
+    method: builtin:artifact:orphan {manifest} --dir {outdir}
+    expect: exit:0
+    counter: 在 {outdir}/ 放一个未登记的图后，本项必须变黄
+    severity: yellow

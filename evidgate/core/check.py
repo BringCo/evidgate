@@ -109,8 +109,12 @@ def _mini_yaml(text: str) -> dict:
     return out
 
 
-def load_checks(path: str) -> List[Check]:
-    """Load and validate checks from a .yaml / .json file."""
+def load_checks(path: str, allow_empty: bool = False) -> List[Check]:
+    """Load and validate checks from a .yaml / .json file.
+
+    allow_empty: a project that declares `packs:` may legitimately write no checks
+    of its own; the packs supply them.
+    """
     if not os.path.exists(path):
         raise FileNotFoundError(path)
     with open(path, encoding="utf-8") as fh:
@@ -129,7 +133,7 @@ def load_checks(path: str) -> List[Check]:
         checks.append(Check(**{k: v for k, v in item.items() if k in Check.__annotations__}))
     for c in checks:
         c.validate()
-    if not checks:
+    if not checks and not allow_empty:
         raise ValueError(f"{path}: 没有任何启用的检查项（注释模板不算）；打开它，去掉 # 写下第一条")
     ids = [c.cid for c in checks]
     dup = {x for x in ids if ids.count(x) > 1}

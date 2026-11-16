@@ -1,0 +1,21 @@
+# pack: build — 构建产物交付前的完整性
+checks:
+  - cid: GB1
+    name: 构建产物目录非空（{outdir}）
+    method: test -d {outdir} -a -n "$(ls -A {outdir} 2>/dev/null)"
+    expect: exit:0
+    counter: 清空 {outdir}/ 后，本项必须变红
+    severity: red
+  - cid: GB2
+    name: 交付物里没有明文密钥
+    method: grep -rIl -E "{secret}" {outdir}
+    expect: exit:1
+    counter: 在 {outdir}/ 放一个假的 AKIA 开头令牌后，本项必须变红
+    severity: red
+    note: 命中时只报文件名与所在项，不把密钥本身写进台账
+  - cid: GB3
+    name: 交付物里没有章尾临时文件
+    method: grep -rIl -E "\.(tmp|bak|swp|orig)$" {outdir}
+    expect: exit:1
+    counter: 在 {outdir}/ 放一个 a.tmp 后，本项必须变黄
+    severity: yellow

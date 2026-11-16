@@ -561,3 +561,48 @@ class TestProseAgainstRealWorldWording(unittest.TestCase):
         body = "正文一句足够长的句子用来测试。\n$$ x = mean(a) / b \\times 100 $$\n"
         lines = prose.sentences(body)
         self.assertEqual(len(lines), 1)
+
+
+class TestPacks(unittest.TestCase):
+    def test_figures_pack_expands_to_three_checks(self):
+        from evidgate.core.packs import load_packs
+        chks = load_packs(["figures"])
+        self.assertEqual([c.cid for c in chks], ["GF1", "GF2", "GF3"])
+        self.assertIn("artifacts.json", chks[0].method)
+        for c in chks:
+            self.assertTrue(c.counter.strip(), "a pack check must carry its counter-test")
+
+    def test_options_override_defaults(self):
+        from evidgate.core.packs import load_packs
+        chks = load_packs(["figures:manifest=mine.json,outdir=figs"])
+        self.assertIn("mine.json", chks[0].method)
+        self.assertIn("figs", chks[2].name)
+        self.assertIn("--dir figs", chks[2].method)
+
+    def test_unknown_pack_fails_loudly(self):
+        from evidgate.core.packs import load_packs
+        with self.assertRaises(SystemExit):
+            load_packs(["no_such_pack"])
+
+    def test_missing_placeholder_value_fails(self):
+        from evidgate.core.packs import _sub
+        with self.assertRaises(SystemExit):
+            _sub("hello {missing}", {}, "figures")
+
+    def test_pack_only_project_may_have_no_own_checks(self):
+        import tempfile
+        from evidgate.core.check import load_checks
+        with tempfile.TemporaryDirectory() as d:
+            cfg = os.path.join(d, "evidgate.yaml")
+            with open(cfg, "w", encoding="utf-8") as fh:
+                fh.write("project: x\npacks: figures\n")
+            self.assertEqual(load_checks(cfg, allow_empty=True), [])
+            with self.assertRaises(ValueError):
+                load_checks(cfg)
+
+    def test_credentials_never_reach_the_ledger(self):
+        from evidgate.core.evidence import redact
+        out = redact("AWS_KEY=AKIAIOSFODNN7EXAMPLE\nother line")
+        self.assertNotIn("AKIAIOSFODNN7EXAMPLE", out)
+        self.assertIn("REDACTED", out)
+        self.assertIn("other line", out)

@@ -231,6 +231,34 @@ Two conventions you should know:
 These are heuristics, not oracles — yellow is where a human should look, which is
 exactly why yellow exists.
 
+## Check packs
+
+Write one line instead of fifteen:
+
+```yaml
+project: my-deliverable
+ledger: evidgate_ledger.md
+packs: figures
+```
+
+That is a complete config. `evidgate run` expands it into three real checks
+(manifest / stale / orphan) and blocks on the red one.
+
+| pack | what it adds |
+|---|---|
+| `figures` | one source, many derivatives: `png`/`pdf`/`eps` stay covered by `artifacts.json` |
+| `build` | build output is non-empty, carries no credentials, has no stray `.tmp`/`.bak` |
+| `repo` | tests are green, no leftover `TODO`/`FIXME`/`breakpoint()` |
+
+Parameters go after a colon: `packs: figures:manifest=my.json,outdir=figs`.
+See what a pack expands to with `evidgate pack show figures`.
+
+**Scope note.** This is deliberately not a typography or AI-tone linter — Vale and
+`deliverable-qa` do that well and with far more rules. evidgate asks a different
+question: *is the evidence behind this claim present, unchanged and still
+reproducible?* That is why every check runs a command and records an exit code,
+a hash and a timestamp, and why packs here check artifacts rather than prose.
+
 ## Examples
 
 Both are **fictional**; every defect is planted on purpose.

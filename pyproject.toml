@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evidgate"
-version = "0.5.2"
+version = "0.6.0"
 description = "Evidence gates for deliverables: every claim gets a command, an exit code, and a ledger line."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -29,3 +29,6 @@ evidgate = "evidgate.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["evidgate*"]
+
+[tool.setuptools.package-data]
+evidgate = ["packs/*.yaml"]

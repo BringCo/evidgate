@@ -2,6 +2,34 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.6.0 — 2026-11-16
+
+### Added
+- **Check packs.** `packs: figures` in `evidgate.yaml` is now a complete config — no
+  checks of your own required. Three packs ship in the box:
+
+  | pack | checks |
+  |---|---|
+  | `figures` | manifest · stale · orphan, for one source / many derivatives |
+  | `build` | output non-empty · no credentials · no stray temp files |
+  | `repo` | tests green · no leftover TODO/FIXME/breakpoint |
+
+  Parameters: `packs: figures:manifest=my.json,outdir=figs`. Inspect with
+  `evidgate pack list` / `evidgate pack show figures`.
+- Pack checks carry their own counter-tests and are refused by the same `validate()`
+  as hand-written ones.
+- `load_checks(..., allow_empty=True)`: a project whose checks all come from packs may
+  legitimately declare none of its own.
+- **Credentials are redacted before display.** A check like `grep -n AKIA .env` is the
+  check you want, and its stdout is exactly what must not land in a ledger you commit.
+  Detection uses the raw text; only what is written to the ledger is redacted.
+- `evidgate/packs/*.yaml` is shipped in the wheel (`package-data`).
+
+### Scope note (also in README)
+evidgate is not a typography or AI-tone linter — Vale and `deliverable-qa` do that with
+far more rules. The packs here check artifacts, not prose, because that is the part
+those tools cannot reach.
+
 ## 0.5.2 — 2026-11-16
 
 ### Fixed (found by running against real drafts, not examples)

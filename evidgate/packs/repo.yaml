@@ -1,0 +1,15 @@
+# pack: repo — 代码交付前的最后两道
+checks:
+  - cid: GR1
+    name: 单测全绿
+    method: {test_cmd}
+    expect: exit:0
+    counter: 改坏一个断言后，本项必须变红
+    severity: red
+    note: 参数化：packs: repo test_cmd="python3 -m pytest -q"
+  - cid: GR2
+    name: 没有遗留调试钩子（{pattern}）
+    method: grep -rn -E "{pattern}" --include=*.py .
+    expect: exit:1
+    counter: 在任一 .py 里加一行 TODO 后，本项必须变黄
+    severity: yellow

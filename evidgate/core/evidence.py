@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import shlex
 import subprocess
 import time
@@ -33,7 +34,7 @@ class Evidence:
 
     def key_output(self, n: int = 3) -> str:
         lines = [l for l in self.stdout.splitlines() if l.strip()]
-        return " | ".join(lines[-n:])[:400]
+        return redact(" | ".join(lines[-n:]))[:400]
 
     def missing(self, needs_stdout: bool = False) -> List[str]:
         """Evidence three-piece self-check. Empty list == evidence is complete.
@@ -52,6 +53,22 @@ class Evidence:
             if not a.exists:
                 gaps.append(f"artifact missing: {a.path}")
         return gaps
+
+
+_SECRET = re.compile(
+    r"(AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36}"
+    r"|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
+)
+
+
+def redact(text: str) -> str:
+    """Never let a credential reach the ledger.
+
+    A check like `grep -n AKIA .env` is exactly the check you want, and its stdout
+    is exactly what must not land in a file you then commit. Detection uses the raw
+    text; only display is redacted.
+    """
+    return _SECRET.sub("***REDACTED***", text)
 
 
 def _md5(path: str) -> str:

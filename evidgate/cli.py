@@ -79,10 +79,21 @@ def _load(dir_: str):
     from .core.check import _mini_yaml
     with open(cfg_path, encoding="utf-8") as fh:
         cfg = _mini_yaml(fh.read())
+    packs = cfg.get("packs") or []
+    if isinstance(packs, str):
+        packs = [x.strip() for x in packs.strip("[]").split(",") if x.strip()]
     try:
-        checks = load_checks(cfg_path)
+        checks = load_checks(cfg_path, allow_empty=bool(packs))
     except ValueError as exc:
         sys.exit(str(exc))
+    if packs:
+        from .core.packs import load_packs
+        packed = load_packs(packs)
+        own = {c.cid for c in checks}
+        dup = sorted({c.cid for c in packed if c.cid in own})
+        if dup:
+            sys.exit(f"pack 检查项编号与本项目的冲突：{dup}。改 pack 的 cid 或删掉自有同名项。")
+        checks = checks + packed
     ledger = cfg.get("ledger", "evidgate_ledger.md")
     project = cfg.get("project", os.path.basename(os.path.abspath(dir_)))
     return cfg, checks, os.path.join(dir_, ledger), project
@@ -197,6 +208,35 @@ def cmd_artifact_update(a) -> int:
     n = art.refresh(out)
     print(f"{out}: 更新了 {n} 个 md5（未动 source_md5；那要用 artifact-stamp 显式盖章）")
     print("now re-run the gate: evidgate run --dir " + a.dir)
+    return 0
+
+
+def cmd_pack(a) -> int:
+    from .core.packs import DEFAULTS, available, load_packs
+    if a.action == "list":
+        names = available()
+        if not names:
+            print("没有可用的 pack")
+            return 0
+        print("可用 pack（在 evidgate.yaml 里写 packs: 名字, 名字2:参数=值）\n")
+        for n in names:
+            try:
+                n_chk = load_packs([n])
+                print(f"  {n:9s} {len(n_chk)} 条 · " + "; ".join(c.name for c in n_chk))
+            except SystemExit as exc:
+                print(f"  {n:9s} 加载失败：{exc}")
+            params = DEFAULTS.get(n) or {}
+            if params:
+                print(f"  {'':9s} 参数：{' '.join(f'{k}=…' for k in params)}")
+        return 0
+    if not a.name:
+        print("用法：evidgate pack show <名字>")
+        return 2
+    for c in load_packs([a.name]):
+        print(f"{c.cid:6s} [{c.severity}] {c.name}")
+        print(f"       method : {c.method}")
+        print(f"       expect : {c.expect}")
+        print(f"       counter: {c.counter}")
     return 0
 
 
@@ -382,6 +422,11 @@ def main(argv=None) -> int:
     p.add_argument("--dir", default=".")
     p.add_argument("--manifest", default="artifacts.json")
     p.set_defaults(fn=cmd_artifact_update)
+
+    p = sub.add_parser("pack", help="list reusable check packs, or show one expanded")
+    p.add_argument("action", nargs="?", default="list", choices=["list", "show"])
+    p.add_argument("name", nargs="?", default="")
+    p.set_defaults(fn=cmd_pack)
 
     p = sub.add_parser("doctor", help="check yaml + commands before blaming the project")
     p.add_argument("--dir", default=".")
