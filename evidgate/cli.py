@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from typing import Dict, List
@@ -18,12 +19,31 @@ from .plugins import prose
 
 CONFIG = "evidgate.yaml"
 
+# Shell syntax that direct exec() cannot honour: a check using any of these must
+# declare `shell:`, otherwise it fails for a reason that has nothing to do with
+# the project. `|`, `>`, `<` are only counted outside quotes, because
+# `grep -E "a|b"` inside quotes is a regex, not a pipe.
+_SHELL_META = re.compile(r"&&|\|\||\$\(|>>|[<>]|`")
+
+def _needs_shell(method: str) -> bool:
+    """True when the command uses shell syntax that direct exec cannot honour.
+
+    Single quotes suppress expansion, so their content is dropped; double quotes
+    do NOT suppress command substitution, so `"$(ls ...)"` still needs a shell.
+    """
+    no_single = re.sub(r"'[^']*'", "", method)
+    bare = re.sub(r'"[^"]*"', "", no_single)
+    if _SHELL_META.search(bare):
+        return True
+    return bool(re.search(r"\$\(|`", no_single))
+
 TPL_ACTIVE = """# evidgate config. One check = one command + one assertion + one counter-test.
 project: {project}
 ledger: evidgate_ledger.md
 
 checks:
   - cid: C1
+    shell: bash
     name: 交付文件存在且非空
     method: test -s {target} && wc -c < {target}
     expect: exit:0; regex:\\d
@@ -39,6 +59,7 @@ ledger: evidgate_ledger.md
 checks:
   # 复制下面三行, 去掉 #, 改成你自己的
   # - cid: C1
+  #   shell: bash        # 命令里有 && | > < $( ` 时必须声明，否则会假红
   #   name: 交付文件存在且非空
   #   method: test -s your_output.md && wc -c < your_output.md
   #   expect: exit:0; regex:\\d
@@ -314,10 +335,19 @@ def cmd_doctor(a) -> int:
         posix = _sh.which("bash") or _sh.which("sh") or "(none)"
         print(f"  [OK  ] 默认不经 shell 执行；声明 shell: bash 时用 {posix}")
     all_ok = True
+    from .core.evidence import find_posix_shell as _posix
     for c in checks:
         m = c.method.strip()
         if builtin.is_builtin(m):
             verdict = builtin.describe(m, cwd=d)
+        elif c.shell:
+            exe = (_posix() if (os.name == "nt" and c.shell in ("bash", "sh"))
+                   else shutil.which(c.shell))
+            verdict = (f"OK (shell: {c.shell})" if exe
+                       else f"BAD: 声明了 shell: {c.shell}，本机找不到它")
+        elif _needs_shell(m):
+            verdict = ("BAD: 命令含 shell 语法（&& | > < $( `）却没声明 shell "
+                       "—— 加 shell: bash，或改用 builtin: 检查项")
         else:
             head = (m.split() or [""])[0]
             shell_builtin = {"cd", "test", "echo", "true", "false", "export", "set",

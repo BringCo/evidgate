@@ -761,3 +761,63 @@ class TestNoDerivativesIsNotGreen(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr[-300:])
             items = json.load(open(os.path.join(d, "a.json")))["items"]
             self.assertEqual([i["path"] for i in items], ["real.txt"])
+
+
+class TestStarterTemplateAndDoctor(unittest.TestCase):
+    """The first minute must not be a fake red: `init` then `run` has to be green,
+    and emptying the file has to turn it red (a check that cannot go red is a wish)."""
+
+    def _run(self, *args):
+        import subprocess
+        return subprocess.run([sys.executable, "-m", "evidgate.cli", *args],
+                              capture_output=True, text=True)
+
+    def test_init_then_run_is_green_on_a_fresh_project(self):
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "draft.md"), "w", encoding="utf-8").write("内容\n")
+            self._run("init", "--dir", d)
+            r = self._run("run", "--dir", d)
+            self.assertEqual(r.returncode, 0, r.stdout[-500:])
+
+    def test_init_declares_shell_when_the_command_needs_one(self):
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "draft.md"), "w", encoding="utf-8").write("x\n")
+            self._run("init", "--dir", d)
+            checks = load_checks(os.path.join(d, "evidgate.yaml"))
+            shell_checks = [c for c in checks if c.method.startswith("test -s")]
+            self.assertTrue(shell_checks, "starter check missing")
+            self.assertEqual(shell_checks[0].shell, "bash")
+
+    def test_emptying_the_file_turns_it_red(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "draft.md")
+            open(p, "w", encoding="utf-8").write("内容\n")
+            self._run("init", "--dir", d)
+            self.assertEqual(self._run("run", "--dir", d).returncode, 0)
+            open(p, "w").close()
+            r = self._run("run", "--dir", d)
+            self.assertEqual(r.returncode, 1, r.stdout[-500:])
+
+    def test_doctor_refuses_shell_syntax_without_a_shell_declaration(self):
+        cfg = ("project: t\nledger: evidgate_ledger.md\nchecks:\n"
+               "  - cid: B1\n    name: 含 && 未声明\n"
+               "    method: test -s report.md && wc -c < report.md\n"
+               "    expect: exit:0\n    counter: 清空后必须红\n    severity: red\n")
+        with tempfile.TemporaryDirectory() as d:
+            open(os.path.join(d, "report.md"), "w", encoding="utf-8").write("x")
+            open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8").write(cfg)
+            r = self._run("doctor", "--dir", d)
+            self.assertEqual(r.returncode, 1, r.stdout[-500:])
+            self.assertIn("shell 语法", r.stdout)
+
+    def test_shell_detection_ignores_quoted_pipes(self):
+        from evidgate.cli import _needs_shell
+        self.assertFalse(_needs_shell('grep -c -E "a|b" report.md'))
+        self.assertFalse(_needs_shell("grep -rn TODO src/"))
+        self.assertTrue(_needs_shell("test -s a && wc -c < a"))
+        self.assertTrue(_needs_shell("echo $(date)"))
+
+    def test_shell_detection_catches_substitution_inside_double_quotes(self):
+        from evidgate.cli import _needs_shell
+        self.assertTrue(_needs_shell('test -n "$(ls -A out 2>/dev/null)"'))
+        self.assertFalse(_needs_shell("test -n '$(not-expanded)'"))
