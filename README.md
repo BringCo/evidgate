@@ -65,7 +65,7 @@ git clone https://github.com/BringCo/evidgate && cd evidgate
 pip install evidgate
 ```
 
-Python 3.9+; CI runs the suite on 3.9 and 3.12 (developed and exercised on 3.12/3.14).
+Python 3.9+; CI runs the suite on 3.9, 3.12, 3.13 and 3.14 (3.14 is allowed to fail while its runner image settles).
 No third-party dependencies. PyYAML is used when present; a built-in
 parser covers the examples otherwise.
 
