@@ -91,10 +91,13 @@ def rule_manifest(path: str) -> List[str]:
             hits.append(f"登记了但不存在: {rel}")
             continue
         want = it.get("md5")
-        # only derivatives are checked against their own recorded hash: editing a
-        # *source* is the normal workflow (and `stale` is what notices the fallout),
-        # whereas editing a derivative by hand is the thing rule 2 forbids.
-        if want and (it.get("role") == "derivative" or it.get("same_as_source")):
+        # structural test, not a label: anything that declares a source, or is flagged
+        # same_as_source, is a derivative. Relying on role= meant a manifest entry that
+        # wrote `source` but forgot `role` was silently skipped (measured: empty result
+        # with a deliberately wrong md5).
+        is_derivative = bool(it.get("source") or it.get("same_as_source")
+                             or it.get("role") == "derivative")
+        if want and is_derivative:
             got = _md5(full)
             if got != want:
                 # a pure line-ending difference is a checkout artefact, not an edit
@@ -169,10 +172,12 @@ def rule_orphan(path: str, scan_dir: str = ".") -> List[str]:
 
 
 def refresh(path: str) -> int:
-    """Recompute every recorded hash from what is on disk. Returns how many changed.
+    """Recompute the artifacts' own recorded hashes. Never touches `source_md5`.
 
-    The counterpart to `artifact-init`: after you deliberately regenerate a derivative,
-    refresh the manifest instead of editing hashes by hand.
+    An earlier version also refreshed `source_md5`, which silently declared every
+    derivative up to date: one `artifact-update` erased every stale item without
+    regenerating anything. That is the opposite of a gate, so stamping is now a
+    separate, explicit act -- see `stamp()`.
     """
     with open(path, encoding="utf-8") as fh:
         data = json.load(fh)
@@ -182,24 +187,53 @@ def refresh(path: str) -> int:
         rel = it.get("path")
         if not rel:
             continue
+        # sources carry no md5: their only tracked fact is source_md5 on the derivatives,
+        # and only `artifact-stamp` writes that.
+        if not (it.get("source") or it.get("same_as_source") or it.get("role") == "derivative"):
+            continue
         full = _abs(root, rel)
         if os.path.exists(full):
             got = _md5(full)
             if it.get("md5") != got:
                 it["md5"] = got
                 changed += 1
-        src = it.get("source")
-        if src:
-            sf = _abs(root, src)
-            if os.path.exists(sf):
-                sm = _md5(sf)
-                if it.get("source_md5") != sm:
-                    it["source_md5"] = sm
-                    changed += 1
     with open(path, "w", encoding="utf-8", newline=chr(10)) as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2)
         fh.write(chr(10))
     return changed
+
+
+def stamp(path: str, targets: List[str]) -> int:
+    """Record "this derivative was generated from the source as it is right now".
+
+    The only writer of `source_md5`. Call it immediately after regenerating, never in
+    bulk: stamping something you did not regenerate is exactly the lie that `stale`
+    exists to catch.
+    """
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    root = _root_of(data, path)
+    by_path = {it.get("path"): it for it in data.get("items") or []}
+    n = 0
+    for t in targets:
+        it = by_path.get(t)
+        if it is None:
+            raise SystemExit(f"{t}: 不在清单里")
+        src = it.get("source")
+        if not src:
+            raise SystemExit(f"{t}: 清单里没有 source 字段，它不是一个派生")
+        sf, df = _abs(root, src), _abs(root, t)
+        if not os.path.exists(df):
+            raise SystemExit(f"{t}: 文件不存在，先重新生成再盖章")
+        if not os.path.exists(sf):
+            raise SystemExit(f"{t}: 源 {src} 不存在")
+        it["source_md5"] = _md5(sf)
+        it["md5"] = _md5(df)
+        n += 1
+    with open(path, "w", encoding="utf-8", newline=chr(10)) as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+        fh.write(chr(10))
+    return n
 
 
 def _split_args(argv: List[str]) -> Tuple[str, Dict[str, str]]:

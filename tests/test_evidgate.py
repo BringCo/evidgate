@@ -342,7 +342,8 @@ class TestArtifactStaleByHash(unittest.TestCase):
         self.assertEqual(ev.exit_code, 3)
         self.assertIn("源已变", ev.stdout)
 
-    def test_refresh_clears_stale(self):
+    def test_refresh_does_not_clear_stale(self):
+        """artifact-update refreshes hashes; it must NOT declare a derivative fresh."""
         import contextlib
         import io
         from evidgate.cli import main
@@ -353,7 +354,7 @@ class TestArtifactStaleByHash(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 main(["artifact-update", "--dir", d])
             ev = collect("builtin:artifact:stale artifacts.json", cwd=d)
-        self.assertEqual(ev.exit_code, 0)
+        self.assertEqual(ev.exit_code, 3, "update must not launder a stale derivative")
 
     def test_missing_source_md5_is_reported_not_silently_passed(self):
         import json
@@ -429,3 +430,85 @@ class TestManifestOnlyHashesDerivatives(unittest.TestCase):
             ev = collect("builtin:artifact:manifest artifacts.json", cwd=d)
         self.assertEqual(ev.exit_code, 2)
         self.assertIn("内容变了", ev.stdout)
+
+
+class TestStampingIsExplicit(unittest.TestCase):
+    """A gate must never be able to launder a stale derivative into a fresh one."""
+
+    def _proj(self, d):
+        import hashlib
+        import json
+        sp = os.path.join(d, "s.md")
+        with open(sp, "w", encoding="utf-8") as fh:
+            fh.write("v1\n")
+        with open(sp, "rb") as fh:
+            v1 = hashlib.md5(fh.read()).hexdigest()
+        dp = os.path.join(d, "out.txt")
+        with open(dp, "w", encoding="utf-8") as fh:
+            fh.write("derived from v1\n")
+        with open(dp, "rb") as fh:
+            dm = hashlib.md5(fh.read()).hexdigest()
+        man = {"root": ".", "items": [
+            {"path": "s.md", "role": "source"},
+            {"path": "out.txt", "role": "derivative", "source": "s.md",
+             "md5": dm, "source_md5": v1},
+        ]}
+        with open(os.path.join(d, "artifacts.json"), "w", encoding="utf-8") as fh:
+            json.dump(man, fh)
+        with open(sp, "a", encoding="utf-8") as fh:
+            fh.write("v2\n")          # source moved on
+        return dp
+
+    def test_update_does_not_launder_a_stale_derivative(self):
+        import contextlib
+        import io
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            self._proj(d)
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["artifact-update", "--dir", d])
+            ev = collect("builtin:artifact:stale artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 3,
+                         "artifact-update must not clear a stale item without regenerating")
+
+    def test_stamp_after_real_regeneration_clears_it(self):
+        import contextlib
+        import io
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            dp = self._proj(d)
+            with open(dp, "w", encoding="utf-8") as fh:
+                fh.write("derived from v2\n")     # actually regenerated
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["artifact-stamp", "--dir", d, "--path", "out.txt"])
+            ev = collect("builtin:artifact:stale artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 0)
+
+    def test_manifest_detects_derivative_by_structure_not_label(self):
+        import json
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "s.md"), "w", encoding="utf-8") as fh:
+                fh.write("v1\n")
+            with open(os.path.join(d, "out.txt"), "w", encoding="utf-8") as fh:
+                fh.write("derived\n")
+            man = {"root": ".", "items": [
+                {"path": "out.txt", "source": "s.md", "md5": "0" * 32},  # no role field
+            ]}
+            with open(os.path.join(d, "artifacts.json"), "w", encoding="utf-8") as fh:
+                json.dump(man, fh)
+            ev = collect("builtin:artifact:manifest artifacts.json", cwd=d)
+        self.assertEqual(ev.exit_code, 2, "a derivative must be detected structurally")
+        self.assertIn("内容变了", ev.stdout)
+
+    def test_update_adds_no_md5_to_sources(self):
+        import contextlib
+        import io
+        import json
+        from evidgate.cli import main
+        with tempfile.TemporaryDirectory() as d:
+            self._proj(d)
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["artifact-update", "--dir", d])
+            with open(os.path.join(d, "artifacts.json"), encoding="utf-8") as fh:
+                man = json.load(fh)
+        self.assertNotIn("md5", man["items"][0])

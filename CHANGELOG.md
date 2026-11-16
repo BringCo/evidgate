@@ -2,6 +2,31 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.4.0 — 2026-11-16
+
+### Changed (behaviour, and the point of this release)
+- `source_md5` now has exactly one writer: the new `artifact-stamp`, run right after a
+  derivative is regenerated. `artifact-init` no longer writes it (at build time nobody
+  knows the history, so writing the current hash is a false claim) and
+  `artifact-update` no longer touches it.
+  Why: 0.3.x let one `artifact-update` mark every derivative up to date without
+  regenerating anything. Running the rules on a real figure directory (10 SVG sources,
+  30 derivatives) showed the contradiction — the manifest was constructed declaring all
+  30 fresh, so the "0 findings" result was proving my own assumption. With honest
+  bookkeeping those 30 read "cannot tell" until stamped.
+- `artifact-update` only touches derivatives' own `md5`, and no longer adds `md5` to
+  source entries.
+
+### Added
+- `evidgate artifact-stamp --path <derivative>` — record the source hash at generation
+  time. The only way to make `stale` able to answer.
+
+### Fixed
+- `artifact:manifest` decides "is this a derivative" by structure (`source` present,
+  `same_as_source`, or `role`), not by the `role` label alone. A manifest entry that
+  wrote `source` but forgot `role` was silently skipped — measured with a deliberately
+  wrong md5 returning no findings.
+
 ## 0.3.1 — 2026-11-16
 
 ### Fixed (found by running the rules on a real project, not the example)

@@ -92,7 +92,8 @@ evidgate report --dir <proj>                     # gate_report.md: table, yellow
 evidgate mutate --baseline A --mutant B [--only C1]   # does the check actually go red?
 evidgate prose-init --dir <proj> --file <draft>  # append the Chinese prose checks (P1..P5)
 evidgate artifact-init --dir <proj>              # scan a directory into a first-draft artifacts.json
-evidgate artifact-update --dir <proj>            # recompute recorded hashes after regenerating
+evidgate artifact-update --dir <proj>            # recompute an artifact's own md5 (never source_md5)
+evidgate artifact-stamp --dir <proj> --path P    # after regenerating: record the source hash
 evidgate prose scan --file <draft> --rule absolutes   # one rule, standalone
 ```
 
@@ -171,9 +172,9 @@ stamp "now", so the same example reported `1 PASS / 2 DIFF` in a working tree an
 
 **Point `orphan` at the artifact directory, not the repo root.** Measured on a real
 17k-file project: scanning the root reported 6002 "unregistered" files (sources, docs,
-`.bak` copies) — true but useless. Scanning only `build/` is the intended use. Cost:
-2062 files took 0.01 s on ext4 but 40 s for 17k files across a WSL `/mnt/c` mount, so
-width matters more than count on a mounted drive.
+`.bak` copies) — true but useless. Scanning only `build/` is the intended use. Cost: the same
+201 files took 0.001 s on ext4 and 0.818 s across a WSL `/mnt/c` mount (≈800× per file),
+so width matters more than count on a mounted drive.
 
 Files you never want registered (build logs, temp files) go in the manifest's `ignore`
 list, matched with shell globs:
@@ -182,11 +183,20 @@ list, matched with shell globs:
 {"root": ".", "ignore": ["*.log", "tmp/", "*.tmp"], "items": [...]}
 ```
 
-After a deliberate regeneration, refresh the hashes instead of editing JSON:
+`source_md5` has exactly one writer: **`artifact-stamp`**, called right after you
+regenerate. `artifact-update` deliberately does *not* touch it. An earlier version did,
+which meant a single command made every stale derivative look fresh without regenerating
+anything — that is laundering, not gating.
 
 ```bash
-evidgate artifact-update --dir .     # recompute md5 + source_md5
+evidgate artifact-stamp --dir . --path build/report.html   # only after regenerating
 ```
+
+What `stale` can and cannot say: it answers "did the source change since this stamp".
+It cannot tell whether a derivative was ever in sync. A derivative with no `source_md5`
+is reported as **cannot tell**, never as clean. Measured on a real figure directory
+(10 SVG sources, 30 derivatives): before stamping, all 30 read "cannot tell"; the
+mtime heuristic had called 10 of them stale, but that verdict was itself unreliable.
 
 ## Plugin: prose (Chinese)
 

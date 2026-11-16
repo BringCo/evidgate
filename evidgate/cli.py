@@ -172,6 +172,22 @@ def cmd_artifact_init(a) -> int:
 
 
 
+
+def cmd_artifact_stamp(a) -> int:
+    """Record that a derivative was just generated from the current source."""
+    from .plugins import artifact as art
+    out = os.path.join(a.dir, a.manifest)
+    if not os.path.exists(out):
+        sys.exit(f"{out} 不存在；先跑 artifact-init")
+    paths = a.path or []
+    if not paths:
+        sys.exit("--path 至少给一个派生文件，例如: --path build/report.html")
+    n = art.stamp(out, paths)
+    print(f"已盖章 {n} 项（记录当前源哈希）")
+    print("只对刚刚重新生成的文件盖章；批量盖章等于宣称全都是新的。")
+    return 0
+
+
 def cmd_artifact_update(a) -> int:
     """Recompute recorded hashes after a deliberate regeneration."""
     from .plugins import artifact as art
@@ -179,7 +195,7 @@ def cmd_artifact_update(a) -> int:
     if not os.path.exists(out):
         sys.exit(f"{out} 不存在；先跑 artifact-init")
     n = art.refresh(out)
-    print(f"{out}: 更新了 {n} 个哈希")
+    print(f"{out}: 更新了 {n} 个 md5（未动 source_md5；那要用 artifact-stamp 显式盖章）")
     print("now re-run the gate: evidgate run --dir " + a.dir)
     return 0
 
@@ -356,7 +372,13 @@ def main(argv=None) -> int:
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_artifact_init)
 
-    p = sub.add_parser("artifact-update", help="recompute recorded hashes after regenerating")
+    p = sub.add_parser("artifact-stamp", help="record that a derivative was just regenerated")
+    p.add_argument("--dir", default=".")
+    p.add_argument("--manifest", default="artifacts.json")
+    p.add_argument("--path", action="append", help="derivative path (repeatable)")
+    p.set_defaults(fn=cmd_artifact_stamp)
+
+    p = sub.add_parser("artifact-update", help="recompute an artifact's own recorded hash")
     p.add_argument("--dir", default=".")
     p.add_argument("--manifest", default="artifacts.json")
     p.set_defaults(fn=cmd_artifact_update)
