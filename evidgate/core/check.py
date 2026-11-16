@@ -84,6 +84,7 @@ def _mini_yaml(text: str) -> dict:
         pass
 
     out, cur, cur_list = {}, None, None
+    pending_nested = ""       # a key whose block turned out to be a mapping, not a list
     for raw in text.splitlines():
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
@@ -97,18 +98,42 @@ def _mini_yaml(text: str) -> dict:
             cur_list.append(cur)
             cur[m.group(1)] = _scalar(m.group(2))
             continue
+        m = re.match(r"^\s*(\w+)\s*:\s*$", raw)
+        if m:  # "key:" with no value opens a list under that key
+            if pending_nested:
+                raise ValueError(
+                    f"{pending_nested}: 下面跟着的是嵌套 mapping，内置解析器只支持一层；"
+                    f"改成一行写法（packs: repo:test_cmd=...）或 pip install pyyaml"
+                )
+            out[m.group(1)] = []
+            cur_list = out[m.group(1)]
+            cur = None
+            pending_nested = m.group(1)
+            continue
+        m = re.match(r"^(\w+)\s*:\s*(.+)$", raw)
+        if m:  # top-level "key: value" (no indentation, value present)
+            out[m.group(1)] = _scalar(m.group(2))
+            cur = None
+            cur_list = None
+            pending_nested = ""
+            continue
         m = _KV.match(raw)
         if m:
             if cur is not None:
                 cur[m.group(1)] = _scalar(m.group(2))
+            elif pending_nested:
+                raise ValueError(
+                    f"{pending_nested}: 下面跟着的是嵌套 mapping，内置解析器只支持一层；"
+                    f"改成一行写法（packs: repo:test_cmd=...）或 pip install pyyaml"
+                )
             else:
                 out[m.group(1)] = _scalar(m.group(2))
             continue
-        m = re.match(r"^\s*(\w+)\s*:\s*$", raw)
-        if m:
-            out[m.group(1)] = []
-            cur_list = out[m.group(1)]
-            cur = None
+        if re.match(r"^\s*\w+\s*:", raw) is None and re.match(r"^\s+-\s", raw) is None:
+            raise ValueError(
+                f"无法解析的行（既不是 key: value，也不是 - key: value）：{raw!r}；"
+                "这种嵌套结构需要 PyYAML：pip install pyyaml"
+            )
     if cur_list is not None:
         for k, v in out.items():
             if v is cur_list:

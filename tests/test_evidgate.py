@@ -853,26 +853,92 @@ class TestStarterTemplateAndDoctor(unittest.TestCase):
         self.assertTrue(_needs_shell('test -n "$(ls -A out 2>/dev/null)"'))
         self.assertFalse(_needs_shell("test -n '$(not-expanded)'"))
 
-    def test_packs_written_as_a_mapping_pass_their_parameters(self):
-        """A dict under `packs:` must not silently fall back to the pack defaults."""
-        from evidgate.cli import _load
-        cfg = ("project: t\nledger: l.md\npacks:\n  repo:\n"
-               "    test_cmd: python3 -m unittest discover -s tests\n")
-        with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
-                fh.write(cfg)
-            _, checks, _, _ = _load(d)
-            methods = {c.cid: c.method for c in checks}
-            self.assertIn("GR1", methods, methods)
-            self.assertIn("unittest", methods["GR1"], methods["GR1"])
-
-    def test_packs_string_form_still_works(self):
+    def test_packs_string_form_works_without_pyyaml(self):
+        """The default install has no PyYAML, so this is the path most users get."""
         from evidgate.cli import _load
         cfg = ("project: t\nledger: l.md\n"
                "packs: repo:test_cmd=python3 -m unittest discover -s tests\n")
         with tempfile.TemporaryDirectory() as d:
             with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
                 fh.write(cfg)
-            _, checks, _, _ = _load(d)
+            _, checks, _, _ = self._load_without_yaml(_load, d)
             methods = {c.cid: c.method for c in checks}
+            self.assertIn("GR1", methods, methods)
             self.assertIn("unittest", methods["GR1"], methods["GR1"])
+
+    def test_several_pack_options_on_one_line(self):
+        """`repo:test_cmd=...,pattern=...` — the comma inside options is not a pack separator."""
+        from evidgate.cli import _load
+        cfg = ("project: t\nledger: l.md\n"
+               "packs: repo:test_cmd=python3 -m unittest discover -s tests,pattern=^#\n")
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
+                fh.write(cfg)
+            _, checks, _, _ = self._load_without_yaml(_load, d)
+            methods = {c.cid: c.method for c in checks}
+            self.assertIn("unittest", methods.get("GR1", ""), methods)
+            self.assertIn("^#", methods.get("GR2", ""), methods)
+
+    def test_nested_packs_without_pyyaml_fails_loudly(self):
+        """A nested mapping must not silently become an empty `packs:` (fake green)."""
+        import builtins
+
+        from evidgate.cli import _load
+        cfg = "project: t\nledger: l.md\npacks:\n  repo:\n    test_cmd: x\n"
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, "evidgate.yaml"), "w", encoding="utf-8") as fh:
+                fh.write(cfg)
+            real_import = builtins.__import__
+
+            def blocked(name, *a, **k):
+                if name == "yaml":
+                    raise ImportError("blocked to exercise the zero-dependency parser")
+                return real_import(name, *a, **k)
+
+            builtins.__import__ = blocked
+            try:
+                with self.assertRaises((ValueError, SystemExit)) as ctx:
+                    _load(d)
+            finally:
+                builtins.__import__ = real_import
+            message = str(getattr(ctx.exception, "code", "") or ctx.exception)
+            self.assertIn("嵌套", message, message)
+
+    def test_builtin_parser_handles_top_level_key_value(self):
+        """`project:` / `ledger:` / `packs:` are top-level keys; the built-in parser
+        used to drop every one of them, so `packs:` vanished when PyYAML was absent."""
+        import builtins
+
+        from evidgate.core.check import _mini_yaml
+        real_import = builtins.__import__
+
+        def blocked(name, *a, **k):
+            if name == "yaml":
+                raise ImportError("blocked to exercise the zero-dependency parser")
+            return real_import(name, *a, **k)
+
+        builtins.__import__ = blocked
+        try:
+            data = _mini_yaml("project: p\nledger: l.md\npacks: figures\n")
+        finally:
+            builtins.__import__ = real_import
+        self.assertEqual(data.get("project"), "p")
+        self.assertEqual(data.get("ledger"), "l.md")
+        self.assertEqual(data.get("packs"), "figures")
+
+    @staticmethod
+    def _load_without_yaml(load_fn, d):
+        """Run `_load` with PyYAML hidden, which is what a plain `pip install` gets."""
+        import builtins
+        real_import = builtins.__import__
+
+        def blocked(name, *a, **k):
+            if name == "yaml":
+                raise ImportError("blocked to exercise the zero-dependency parser")
+            return real_import(name, *a, **k)
+
+        builtins.__import__ = blocked
+        try:
+            return load_fn(d)
+        finally:
+            builtins.__import__ = real_import

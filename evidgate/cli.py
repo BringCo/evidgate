@@ -111,7 +111,18 @@ def _load(dir_: str):
         cfg = _mini_yaml(fh.read())
     packs = cfg.get("packs") or []
     if isinstance(packs, str):
-        packs = [x.strip() for x in packs.strip("[]").split(",") if x.strip()]
+        # `figures, build:outdir=dist` — a comma separates packs. A piece without a
+        # colon is a continuation of the previous pack's options, which is what makes
+        # `repo:test_cmd=...,pattern=...` expressible on one line.
+        entries = []
+        for piece in (x.strip() for x in packs.strip("[]").split(",")):
+            if not piece:
+                continue
+            if entries and ":" not in piece:
+                entries[-1] += "," + piece
+            else:
+                entries.append(piece)
+        packs = entries
     elif isinstance(packs, dict):
         # `packs:` written as a mapping, which is what YAML users reach for first.
         # Both shapes are accepted, and neither may silently fall back to defaults:

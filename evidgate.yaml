@@ -1,12 +1,9 @@
 # evidgate checks itself. Same engine, same ledger, no special case.
 # This is what the CI's dogfood step runs.
+#
+# `packs:` is written on one line on purpose: the built-in parser covers this form,
+# while a nested mapping would need PyYAML, which the project does not require.
 project: evidgate
 ledger: evidgate_ledger.md
 
-packs:
-  repo:
-    # The repo uses unittest, not pytest; the pack default would red on a missing tool.
-    test_cmd: python3 -m unittest discover -s tests
-    # Only commented-out debug hooks count. A bare `TODO` literal appears in this
-    # project's own tests and in the pack definition, and would be a false positive.
-    pattern: ^\s*#.*(TODO|FIXME|breakpoint\(\))
+packs: repo:test_cmd=python3 -m unittest discover -s tests,pattern=^\s*#.*(TODO|FIXME|breakpoint\(\))
