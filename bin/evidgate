@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Zero-install entry point: works straight from a clone.
+# (After `pip install evidgate` the same command comes from the package.)
+set -eu
+here="$(cd "$(dirname "$0")" && pwd)"
+root="$(dirname "$here")"
+export PYTHONPATH="$root${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m evidgate.cli "$@"

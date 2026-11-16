@@ -1,0 +1,47 @@
+# evidgate example: a fictional project (campus second-hand book pricing).
+# Nothing here comes from a real paper; the numbers and defects are planted.
+project: campus-book-pricing (fictional example)
+ledger: evidgate_ledger.md
+
+checks:
+  - cid: C1
+    name: 交付产物存在且非空
+    method: test -s report.md && wc -c < report.md
+    expect: exit:0; regex:\d
+    counter: 删掉 report.md 或清空它，本项必须变红（见 base/ 与 mut/）
+    severity: red
+
+  - cid: P1
+    name: 正文可分词（分母可算）
+    method: ../bin/evidgate prose scan --file paper.md --rule denominator
+    expect: exit:0; regex:正文句 \d+
+    counter: 给一个只有表格的空文件，本项应报错而不是静默 0 句
+    severity: yellow
+
+  - cid: P2
+    name: 绝对化词带范围或检索日期
+    method: ../bin/evidgate prose scan --file paper.md --rule absolutes
+    expect: exit:0
+    counter: paper.md 里「首次实现」未给检索日期，本项必须变红
+    severity: red
+
+  - cid: P3
+    name: 结论句带引用或实测标记
+    method: ../bin/evidgate prose scan --file paper.md --rule uncited
+    expect: exit:0
+    counter: paper.md 里「结果说明该方法优于」既无引用也无 n，应变成黄
+    severity: yellow
+
+  - cid: P4
+    name: 统计数字带口径
+    method: ../bin/evidgate prose scan --file paper.md --rule numeral_scope
+    expect: exit:0
+    counter: paper.md 里「降低 21.2%」不写 n 与协议，应变成黄
+    severity: yellow
+
+  - cid: P5
+    name: 正文引用与文献表双向对上
+    method: ../bin/evidgate prose scan --file paper.md --rule citation_chain
+    expect: exit:0
+    counter: 正文引 [9] 而文献表只到 [8]，本项必须变红
+    severity: red
