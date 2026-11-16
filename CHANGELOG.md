@@ -2,6 +2,42 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.7.1 — 2026-11-16
+
+### Fixed — `build` pack GB3 tested the wrong thing
+The `build` pack's "no leftover temp files" check was written as
+
+```
+grep -rIl -E "\.(tmp|bak|swp|orig)$" {outdir}
+```
+
+which searches file **contents** for a line ending in `.bak`. It never looked at file
+**names**, so a `model.ckpt.bak` sitting in the delivery directory passed as clean.
+Found by running the pack against three real repositories; fixed to a `find -name`
+test with the same counter (drop a `.bak`, it must go red).
+
+### Measured against three real repositories
+Cloned shallow, ran the `build` pack unchanged (no configuration, no hand-written checks):
+
+| repo | files | time | GB1 | GB2 | GB3 |
+|---|---|---|---|---|---|
+| `ashleve/lightning-hydra-template` | 114 | 0.79 s | PASS | PASS | PASS (buggy) |
+| `IDSIA/sacred` | 201 | 0.77 s | PASS | PASS | PASS (buggy) |
+| `the-nix-way/dev-templates` | 131 | 0.62 s | PASS | PASS | PASS (buggy) |
+
+Detection power checked by injection, not by the green result:
+
+- dropped `AKIAIOSFODNN7EXAMPLE` into a tracked `.py` → GB2 goes **FAIL(red)**,
+  release blocked, and the key appears **0 times** in the ledger.
+- dropped `model.ckpt.bak` → before the fix GB3 stayed PASS; after the fix it is
+  **FAIL(red)**; removing the file restores PASS.
+
+### Known limit, now explicit
+`artifact-init` on a general source repository produced **172 entries, all
+`role=source`** — it cannot infer which file derives from which. The artifact rules are
+useful for **structured output directories** (`figures/`, `dist/`), not for arbitrary
+code trees. Annotating 172 files by hand is not a workflow.
+
 ## 0.7.0 — 2026-11-16
 
 ### Changed — **breaking**: a check no longer runs through a shell by default

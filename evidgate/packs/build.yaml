@@ -17,8 +17,9 @@ checks:
     note: 命中时只报文件名与所在项，不把密钥本身写进台账
   - cid: GB3
     shell: bash
-    name: 交付物里没有章尾临时文件
-    method: grep -rIl -E "\.(tmp|bak|swp|orig)$" {outdir}
-    expect: exit:1
-    counter: 在 {outdir}/ 放一个 a.tmp 后，本项必须变黄
-    severity: yellow
+    name: 交付物里没有临时文件（.tmp/.bak/.swp/.orig）
+    method: test -z "$(find {outdir} -type f \( -name '*.tmp' -o -name '*.bak' -o -name '*.swp' -o -name '*.orig' \) -print -quit)"
+    expect: exit:0
+    counter: 在 {outdir}/ 放一个 a.tmp 后，本项必须变红
+    severity: red
+    note: 按文件名判断；早先误用 grep 搜文件内容，放了 .bak 也报 PASS
