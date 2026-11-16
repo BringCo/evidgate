@@ -513,3 +513,51 @@ class TestStampingIsExplicit(unittest.TestCase):
             with open(os.path.join(d, "artifacts.json"), encoding="utf-8") as fh:
                 man = json.load(fh)
         self.assertNotIn("md5", man["items"][0])
+
+
+class TestProseAgainstRealWorldWording(unittest.TestCase):
+    """Calibrated on a real 581-sentence manuscript, not on invented examples.
+
+    Before this calibration the three rules fired 222 times on that draft with ~95%
+    false positives; the descriptive uses below are what caused it.
+    """
+
+    def _hits(self, rule, sentence):
+        import evidgate.plugins.prose as prose
+        return prose.RULES[rule][0]([(1, sentence)])
+
+    def test_descriptive_unique_is_not_a_priority_claim(self):
+        self.assertEqual(self._hits(
+            "absolutes", "四个主干中唯一缺口为负者反向提升 19.34%。"), [])
+
+    def test_descriptive_first_is_not_a_priority_claim(self):
+        self.assertEqual(self._hits(
+            "absolutes", "每块电池的循环序列截断到首次跌破阈值处。"), [])
+
+    def test_actual_priority_claim_still_fires(self):
+        self.assertTrue(self._hits(
+            "absolutes", "本系统首次实现校园二手书的智能定价。"))
+
+    def test_claim_with_chart_reference_is_not_unccited(self):
+        self.assertEqual(self._hits(
+            "uncited", "这一分解决定了方法取向，参见 §4 与图 4。"), [])
+
+    def test_claim_with_evidence_pair_is_not_uncited(self):
+        self.assertEqual(self._hits(
+            "uncited", "结构式锚定相对基线下降 30.53%（20/20，Holm 1.70e-12）。"), [])
+
+    def test_bare_conclusion_still_fires(self):
+        self.assertTrue(self._hits("uncited", "结果说明该方法优于传统人工定价。"))
+
+    def test_bare_percentage_still_fires(self):
+        self.assertTrue(self._hits("numeral_scope", "在验证组上，预估误差降低 21.2%。"))
+
+    def test_qualified_statistic_does_not_fire(self):
+        self.assertEqual(self._hits(
+            "numeral_scope", "误差降低 21.2%（20/20 划分，脚本 scripts/a.py）。"), [])
+
+    def test_formula_lines_are_not_scanned(self):
+        import evidgate.plugins.prose as prose
+        body = "正文一句足够长的句子用来测试。\n$$ x = mean(a) / b \\times 100 $$\n"
+        lines = prose.sentences(body)
+        self.assertEqual(len(lines), 1)

@@ -2,6 +2,29 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.5.0 — 2026-11-16
+
+### Changed (prose rules re-calibrated on a real manuscript)
+Running the rules on a real 581-sentence paper fired 222 times with ~95% false
+positives. What was wrong and what changed:
+
+- `absolutes` matched the words 首次/唯一 on their own. In engineering prose they are
+  mostly descriptive (`SOH 首次跌破`, `唯一缺口为负者`). It now requires a self-reference
+  (`本文/我们`) or a novelty verb (`首次提出/首次实现/…`). 18 → 0 on that draft.
+- `uncited` recognised only `(author, year)` and `n=` as evidence. Real drafts also use
+  `§4`, `图 4`, `表 2`, `p<0.001`, `20/20`, `Holm`, `pp`. 18 → 2.
+- `numeral_scope` demanded an explicit scope on every sentence; in practice the scope is
+  given once and later sentences cite it. Also: `提升/降低/倍` now require an adjacent
+  number, `口径/惯例/定义` sentences are exempt, and formula lines (`$$…$$`) are no
+  longer treated as body text. 184 → 28.
+- `SCOPE_WORD` deliberately does **not** treat 结果/验证/对照/实验/统计 as evidence —
+  measured: those words made the rules go silent on their own examples (`结果说明…`
+  is exactly the sentence `uncited` exists for).
+
+### Added
+- `EVIDGATE_EVIDENCE` env var: `|`-separated regex for field-specific evidence markers.
+- 9 regression tests pinning descriptive wordings that must stay quiet.
+
 ## 0.4.0 — 2026-11-16
 
 ### Changed (behaviour, and the point of this release)
