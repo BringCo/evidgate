@@ -13,7 +13,7 @@ checks:
     severity: red
 
   - cid: A2
-    name: 源改后派生已重新生成
+    name: 派生是否跟随源更新
     method: builtin:artifact:stale artifacts.json
     expect: exit:0
     # 判据是 source_md5（内容哈希），与文件时间无关，clone 后结果一致
