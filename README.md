@@ -62,7 +62,7 @@ git clone https://github.com/BringCo/evidgate && cd evidgate
 ./bin/evidgate --version        # zero-install entry point, stdlib only
 
 # or as a package
-pip install evidgate            # PyPI release pending; use the clone for now
+pip install evidgate
 ```
 
 Python 3.9+; CI runs the suite on 3.9 and 3.12 (developed and exercised on 3.12/3.14).
