@@ -215,8 +215,9 @@ mtime heuristic had called 10 of them stale, but that verdict was itself unrelia
 
 The first version of these rules was calibrated against invented examples and it was
 wrong. On a real 581-sentence manuscript it fired **222 times** with roughly 95% false
-positives — it flagged `唯一缺口为负者` as a priority claim, `SOH 首次跌破` as a novelty
-claim, and every sentence containing `20/20` or `p=1.7e-12` as "missing an n".
+positives — it flagged a descriptive "the metric first fell below its target" as a
+priority claim, a bare "first drop" as a novelty claim, and every sentence containing
+`20/20` or `p=1.7e-12` as "missing an n".
 After calibration it fires **32 times** on the same draft, and the nine regression tests
 in `tests/` pin the descriptive wordings that must stay quiet.
 

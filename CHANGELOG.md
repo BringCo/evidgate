@@ -49,7 +49,7 @@ gives `C1 FAIL(红) … -exit 1` and `RELEASE BLOCKED`.
 
 ### Added — the skill is a tested contract
 
-`skill/SKILL.md` rewritten (20 → 138 lines): when to use it and when not, a copyable
+`skill/evidgate/SKILL.md` rewritten (20 → 138 lines): when to use it and when not, a copyable
 check skeleton (builtin form and shell form), the five verdicts and what each obliges you
 to do, the full command table, three troubleshooting entries, and the working rules.
 
@@ -334,7 +334,8 @@ Running the rules on a real 581-sentence paper fired 222 times with ~95% false
 positives. What was wrong and what changed:
 
 - `absolutes` matched the words 首次/唯一 on their own. In engineering prose they are
-  mostly descriptive (`SOH 首次跌破`, `唯一缺口为负者`). It now requires a self-reference
+  mostly descriptive ("the metric first fell below X", "the only negative gap").
+  It now requires a self-reference
   (`本文/我们`) or a novelty verb (`首次提出/首次实现/…`). 18 → 0 on that draft.
 - `uncited` recognised only `(author, year)` and `n=` as evidence. Real drafts also use
   `§4`, `图 4`, `表 2`, `p<0.001`, `20/20`, `Holm`, `pp`. 18 → 2.

@@ -2,7 +2,8 @@
 
 A skill that drifts out of sync with the CLI is the same failure this tool exists to
 catch — a documented step that nobody re-runs. This module executes the commands inside
-the `skill-check` markers in `skill/SKILL.md`, in one sandbox, in the documented order.
+the `skill-check` markers in `skill/evidgate/SKILL.md`, in one sandbox, in the
+   documented order.
 
 Two ways this test could lie, both closed:
 
@@ -19,7 +20,7 @@ import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SKILL = os.path.join(ROOT, "skill", "SKILL.md")
+SKILL = os.path.join(ROOT, "skill", "evidgate", "SKILL.md")
 START = "<!-- skill-check:start -->"
 END = "<!-- skill-check:end -->"
 
@@ -35,7 +36,7 @@ def load_commands():
         md = fh.read()
     m = re.search(re.escape(START) + r"(.*?)" + re.escape(END), md, re.S)
     if not m:
-        raise AssertionError("skill-check markers missing from skill/SKILL.md")
+        raise AssertionError("skill-check markers missing from skill/evidgate/SKILL.md")
     cmds = []
     for line in m.group(1).splitlines():
         line = line.split("  #")[0].strip()
