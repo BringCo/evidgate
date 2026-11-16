@@ -647,3 +647,33 @@ class TestMissingCommand(unittest.TestCase):
         self.assertTrue(_missing_tool(1, gbk), "a GBK console must be decoded before matching")
         self.assertFalse(_missing_tool(1, ""))
         self.assertFalse(_missing_tool(2, "grep: dist: No such file or directory"))
+
+
+class TestShellDeclaration(unittest.TestCase):
+    """Default is no shell; a shell is an explicit, declared choice."""
+
+    def test_default_runs_without_a_shell(self):
+        from evidgate.core.evidence import _build_argv
+        argv, err = _build_argv("grep -rn TODO .", "")
+        self.assertEqual(err, "")
+        self.assertEqual(argv, ["grep", "-rn", "TODO", "."])
+
+    def test_explicit_bash_goes_through_bash(self):
+        from evidgate.core.evidence import _build_argv, find_posix_shell
+        argv, err = _build_argv("echo a && echo b", "bash")
+        self.assertEqual(err, "")
+        if find_posix_shell():
+            self.assertEqual(argv[1], "-lc")
+            self.assertIn("bash", argv[0])
+
+    def test_shell_syntax_without_shell_says_what_to_do(self):
+        from evidgate.core.evidence import collect
+        ev = collect("cd src && python3 -m unittest", cwd="/tmp")
+        self.assertTrue(ev.command_not_found, "argv[0]='cd' cannot be executed directly")
+        self.assertIn("shell: bash", ev.not_found_hint)
+
+    def test_invalid_shell_name_is_rejected_at_load(self):
+        from evidgate.core.check import Check
+        with self.assertRaises(ValueError):
+            Check(cid="X", name="n", method="m", expect="exit:0",
+                  counter="c", shell="fish").validate()

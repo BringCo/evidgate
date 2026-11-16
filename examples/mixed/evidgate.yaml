@@ -7,20 +7,21 @@ checks:
   # --- prose (a drafted document) ---
   - cid: D1
     name: 草稿里的绝对化词带范围或检索日期
-    method: ../../bin/evidgate prose scan --file draft.md --rule absolutes
+    method: builtin:prose:absolutes draft.md
     expect: exit:0
     counter: draft.md 里「首次实现」未给检索日期，本项必须变红
     severity: red
 
   - cid: D2
     name: 草稿里的统计数字带口径
-    method: ../../bin/evidgate prose scan --file draft.md --rule numeral_scope
+    method: builtin:prose:numeral_scope draft.md
     expect: exit:0
     counter: draft.md 里「降低 18.4%」不写 n 与协议，应变成黄
     severity: yellow
 
   # --- artifact (a produced file) ---
   - cid: A1
+    shell: bash
     name: 产物存在且非空
     method: test -s build/out.txt && wc -c < build/out.txt
     expect: exit:0; regex:\d
@@ -28,6 +29,7 @@ checks:
     severity: red
 
   - cid: A2
+    shell: bash
     name: 正本与其派生副本逐字节一致
     method: cmp -s src/app.py src/app.py.bak
     expect: exit:0
@@ -36,6 +38,7 @@ checks:
 
   # --- code (the thing that produced the artifact) ---
   - cid: C1
+    shell: bash
     name: 代码单测全绿
     method: cd src && python3 -m unittest -q test_app
     expect: exit:0
@@ -43,6 +46,7 @@ checks:
     severity: red
 
   - cid: C2
+    shell: bash
     name: 源码里没有明文密钥
     method: cat src/app.py
     expect: exit:0; not_contains:api_key; not_contains:secret_key
@@ -50,6 +54,7 @@ checks:
     severity: red
 
   - cid: C3
+    shell: bash
     name: 源码里没有残留 TODO
     method: grep -rn TODO src/
     expect: exit:1

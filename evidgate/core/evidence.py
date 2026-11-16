@@ -120,8 +120,73 @@ def _md5(path: str) -> str:
     return h.hexdigest()
 
 
+def _split_argv(command: str) -> List[str]:
+    """Split a command into argv without a shell (the default path)."""
+    import shlex
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError as exc:
+        raise ValueError(
+            f"命令无法拆成参数（{exc}）。如果用了管道 | 重定向 > $() 或 &&，"
+            f"请在检查项上显式写 shell: bash"
+        )
+
+
+def find_posix_shell() -> str:
+    """Locate a real POSIX shell; on Windows this must be Git Bash.
+
+    Deliberately does NOT consult PATH on Windows: `where bash` resolves to
+    C:\\Windows\\System32\\bash.exe, which is the WSL entry point and uses an
+    entirely different path scheme (/mnt/e/... vs /e/...).
+    """
+    import shutil
+    if os.name != "nt":
+        for name in ("bash", "sh"):
+            path = shutil.which(name)
+            if path:
+                return path
+        return ""
+    candidates = [
+        r"C:\\Program Files\\Git\\bin\\bash.exe",
+        r"C:\\Program Files (x86)\\Git\\bin\\bash.exe",
+        os.path.join(os.path.expanduser("~"), "AppData", "Local", "Programs",
+                     "Git", "bin", "bash.exe"),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return ""
+
+
+def _build_argv(command: str, shell: str):
+    """-> (argv, error). An error means the check could not be run at all."""
+    import shutil
+    shell = (shell or "").strip().lower()
+    if not shell:
+        try:
+            return _split_argv(command), ""
+        except ValueError as exc:
+            return [], str(exc)
+    if shell in ("bash", "sh"):
+        found = find_posix_shell()
+        if not found:
+            return [], (f"检查项声明 shell: {shell}，但本机没找到可用的 POSIX shell"
+                        f"（Windows 请安装 Git Bash，或改用 builtin: 检查项）")
+        return [found, "-lc", command], ""
+    if shell == "cmd":
+        if os.name != "nt":
+            return [], "shell: cmd 只能在 Windows 上使用"
+        return ["cmd", "/c", command], ""
+    if shell in ("powershell", "pwsh"):
+        exe = shutil.which(shell)
+        if not exe:
+            return [], f"检查项声明 shell: {shell}，但没找到该可执行文件"
+        return [exe, "-Command", command], ""
+    return [], f"未知 shell {shell!r}"
+
+
 def collect(command: str, cwd: str = ".", timeout: int = 120,
-            artifacts: Optional[List[str]] = None) -> Evidence:
+            artifacts: Optional[List[str]] = None, shell: str = "") -> Evidence:
     """Run a shell command and record everything needed to re-check it later."""
     from . import builtin
     if builtin.is_builtin(command):
@@ -129,21 +194,29 @@ def collect(command: str, cwd: str = ".", timeout: int = 120,
 
     started = time.strftime("%Y-%m-%dT%H:%M:%S")
     t0 = time.time()
+    argv, build_error = _build_argv(command, shell)
+    missing_tool = False
+    if build_error:
+        return Evidence(command, None, "", build_error, 0.0, started, [],
+                        True, build_error)
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")
     try:
-        p = subprocess.run(
-            ["bash", "-lc", command] if os.name != "nt" else ["cmd", "/c", command],
-            cwd=cwd, capture_output=True, timeout=timeout, env=env,
-        )
+        p = subprocess.run(argv, cwd=cwd, capture_output=True,
+                           timeout=timeout, env=env)
         code = p.returncode
         out, err = _decode(p.stdout), _decode(p.stderr)
+    except FileNotFoundError:
+        code, out = 127, ""
+        err = (f"命令未找到：{argv[0] if argv else command}（默认不经 shell 直接执行；"
+               f"若命令里有 | > $() && 等语法，请在该检查项上写 shell: bash）")
+        missing_tool = True
     except subprocess.TimeoutExpired:
         code, out, err = None, "", f"timeout after {timeout}s"
     except Exception as exc:  # pragma: no cover - environment failure path
         code, out, err = None, "", f"could not run: {exc}"
 
-    missing_tool = _missing_tool(code, err, out)
+    missing_tool = missing_tool or _missing_tool(code, err, out)
     arts = []
     for rel in artifacts or []:
         full = rel if os.path.isabs(rel) else os.path.join(cwd, rel)

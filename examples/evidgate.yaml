@@ -5,6 +5,7 @@ ledger: evidgate_ledger.md
 
 checks:
   - cid: C1
+    shell: bash
     name: 交付产物存在且非空
     method: test -s report.md && wc -c < report.md
     expect: exit:0; regex:\d

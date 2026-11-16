@@ -2,6 +2,48 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.7.0 — 2026-11-16
+
+### Changed — **breaking**: a check no longer runs through a shell by default
+Before, every check went through `bash -lc` (POSIX) or `cmd /c` (Windows) — the
+interpreter depended on the platform, which is exactly how the same check behaves
+differently per OS. Now:
+
+- **No `shell:` key** → the command is split into argv and executed directly.
+- **`shell: bash|sh|cmd|powershell|pwsh`** → run through that shell, explicitly.
+
+This mirrors what `prek` does (its `shell` option defaults to `null` = no shell), and is
+the only arrangement where a check means the same thing everywhere.
+
+**Migration**: any check using `|`, `>`, `$()`, `&&` or `cd` needs `shell: bash` added.
+Without it the run fails with: `命令未找到：cd（…若命令里有 | > $() && 等语法，请在该检查项上写 shell: bash）`.
+
+### Added
+- `find_posix_shell()` — on Windows looks for **Git Bash** in its install locations and
+  deliberately ignores `PATH`, where `bash` resolves to `C:\Windows\System32\bash.exe`
+  (the WSL entry point, `/mnt/e/...` instead of `/e/...`).
+- `shell:`, `sh`, `bash`, `cmd`, `powershell`, `pwsh` validated at load time;
+  anything else is refused.
+- Missing shell is reported through the same "command could not run" channel as a
+  missing tool: it blocks the release instead of being silently skipped.
+
+### Measured (native Windows, `E:\Python3106`, `examples/mixed`, 7 checks)
+
+| | v0.6.1 | v0.7.0 |
+|---|---|---|
+| PASS | 0 | **3** (A1, C2, C3 — real execution through Git Bash) |
+| DIFF | 0 | 1 |
+| FAIL | 7 | 3 |
+
+The remaining C1 difference (`cd src && python3 -m unittest`) is a genuine environment
+difference — Git Bash has no `python3` — which is the accepted cost of the explicit-shell
+design: the check must be written for the platform it runs on.
+
+### Compatibility
+- Implementations that never went near `collect()` are untouched; `builtin:` checks
+  behave identically.
+- All four example projects produce byte-identical verdicts before and after.
+
 ## 0.6.1 — 2026-11-16
 
 ### Fixed — a command that never ran could produce a green verdict

@@ -104,7 +104,7 @@ def evaluate(check: Check, ev: Evidence, cwd: str = ".") -> Tuple[str, str]:
 
 def run_check(check: Check, cwd: str = ".") -> Verdict:
     ev = collect(check.method, cwd=cwd, timeout=check.timeout,
-                 artifacts=artifacts_in(check.expect))
+                 artifacts=artifacts_in(check.expect), shell=check.shell)
     if ev.command_not_found:
         # The command never ran. On Windows `grep ...` exits 1, which is exactly
         # what `expect: exit:1` ("grep found nothing") wants -- so a check can flip

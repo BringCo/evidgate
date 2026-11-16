@@ -231,6 +231,36 @@ Two conventions you should know:
 These are heuristics, not oracles — yellow is where a human should look, which is
 exactly why yellow exists.
 
+## Shell: no shell by default
+
+A check runs **without a shell** unless you declare one. That is deliberate: it is the
+only way the same check means the same thing on every platform.
+
+```yaml
+- cid: C3
+  method: grep -rn TODO src/       # split into argv, executed directly
+  expect: exit:1
+  ```
+
+If the command needs pipes, redirection, `$()` or `&&`, say so:
+
+```yaml
+- cid: A1
+  shell: bash                      # bash | sh | cmd | powershell | pwsh
+  method: test -s build/out.txt && wc -c < build/out.txt
+```
+
+Boundaries, stated plainly:
+
+- Without `shell:`, a command that needs shell syntax fails with a message telling you
+  to add `shell: bash` — it does not silently pick a shell for you.
+- `shell: bash` on Windows looks for **Git Bash** in its standard install locations.
+  It deliberately does **not** use `bash` from `PATH`, because there that name resolves
+  to `C:\Windows\System32\bash.exe` — the WSL entry point, which uses `/mnt/e/...`
+  instead of `/e/...` and would look in the wrong place.
+- No Git Bash, no `shell: bash` checks. They report "命令未找到" and block the release.
+  `builtin:` checks need nothing and work everywhere.
+
 ### Windows
 
 Checks run through `bash -lc` on POSIX and `cmd /c` on Windows. Everything that ships

@@ -1,6 +1,7 @@
 # pack: repo — 代码交付前的最后两道
 checks:
   - cid: GR1
+    shell: bash
     name: 单测全绿
     method: {test_cmd}
     expect: exit:0
@@ -8,6 +9,7 @@ checks:
     severity: red
     note: 参数化：packs: repo test_cmd="python3 -m pytest -q"
   - cid: GR2
+    shell: bash
     name: 没有遗留调试钩子（{pattern}）
     method: grep -rn -E "{pattern}" --include=*.py .
     expect: exit:1

@@ -261,13 +261,18 @@ def cmd_doctor(a) -> int:
     import shutil as _sh
     if os.name == "nt":
         bash = _sh.which("bash")
-        print("  [WARN] 检查项在 cmd 下执行；POSIX 命令（grep/test/$()）会报「命令未找到」")
+        from .core.evidence import find_posix_shell as _fps
+        posix = _fps()
+        print("  [WARN] 未声明 shell 的检查项直接执行；声明 shell: bash 的需要 Git Bash")
+        if posix:
+            print(f"         探测到 Git Bash：{posix}")
         if bash:
             print(f"         本机有 bash（{bash}），但 evidgate 当前不会用它；Windows 请优先用 builtin: 检查项")
         else:
             print("         建议：安装 Git Bash，或把检查项换成 builtin:（build/repo 包已提供 builtin 版）")
     else:
-        print(f"  [OK  ] shell: {'bash' if _sh.which('bash') else 'sh'}（POSIX，检查项可用 shell 语法）")
+        posix = _sh.which("bash") or _sh.which("sh") or "(none)"
+        print(f"  [OK  ] 默认不经 shell 执行；声明 shell: bash 时用 {posix}")
     all_ok = True
     for c in checks:
         m = c.method.strip()

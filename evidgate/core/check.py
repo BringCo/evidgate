@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import List
 
 SEVERITIES = ("red", "yellow")
+SHELLS = ("", "sh", "bash", "cmd", "powershell", "pwsh")
 
 
 @dataclass
@@ -26,6 +27,9 @@ class Check:
     optional: bool = False   # true -> a failing command becomes SKIP (not applicable), not red
     timeout: int = 120
     note: str = ""
+    shell: str = ""          # "" = exec the command directly (no shell);
+                             # "bash" / "sh" / "cmd" / "powershell" / "pwsh"
+                             # = run it through that shell explicitly
 
     def validate(self) -> None:
         if not self.cid:
@@ -37,6 +41,10 @@ class Check:
                 f"{self.cid} ({self.name}): no counter-test. "
                 "Declare how this check goes red, or drop it -- "
                 "a gate that cannot fail is not a gate."
+            )
+        if self.shell not in SHELLS:
+            raise ValueError(
+                f"{self.cid}: shell must be one of {SHELLS} (or empty for no shell)"
             )
         if self.severity not in SEVERITIES:
             raise ValueError(f"{self.cid}: severity must be one of {SEVERITIES}")
