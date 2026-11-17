@@ -2,6 +2,16 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## 0.10.0.post1 — 2026-11-17
+
+### Docs — the `sources` pack reaches the project description
+
+No code change. 0.10.0 shipped with a README that never named the new pack, and the
+PyPI long description is a snapshot of that README at upload time — so the release page
+announced a version without announcing what it added. The README now shows the pack
+(`packs: sources:src=…,doc=…`), the failure it exists for, and its yellow-only verdict;
+the docs table says four packs instead of three. Republication only.
+
 ## 0.10.0 — 2026-11-17
 
 ### Added — `sources` pack: a derived document that dropped a clause
