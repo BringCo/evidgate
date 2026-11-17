@@ -2,7 +2,7 @@
 
 One line per user-visible change. Dates are when the change landed.
 
-## Unreleased — 2026-11-17
+## 0.10.0 — 2026-11-17
 
 ### Added — `sources` pack: a derived document that dropped a clause
 

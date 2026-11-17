@@ -69,7 +69,7 @@ Running the bundled three-domain example:
 
 ```console
 $ evidgate run --dir examples/mixed
-evidgate 0.9.2.post1 · mixed-delivery (fictional) · 7 checks
+evidgate 0.10.0 · mixed-delivery (fictional) · 7 checks
    D1 FAIL(红)  草稿里的绝对化词带范围或检索日期  ─  -exit 2 (want 0) | got: L3 [首次实现] 本方案首次实现全自动估价流程。 | [absolutes] 1 finding(s)  (exit 2)
    D2 DIFF(黄)  草稿里的统计数字带口径  ─  -exit 3 (want 0) | got: L3 抽样调参后误差降低 18.4%。 | [numeral_scope] 1 finding(s)  (exit 3)
    A1 PASS     产物存在且非空  ─  +exit 0 (want 0) ; +regex OK ─ \d -> 3
@@ -152,6 +152,17 @@ evidgate artifact-stamp --dir <proj> --path P    # after regenerating: record th
 evidgate pack [list|show <name>]                 # what a pack expands to
 ```
 
+`sources` is the one pack that needs two paths:
+
+```bash
+evidgate init --packs sources:src=notice.pdf,doc=plan.md
+```
+
+It splits the source by clause number and reports the clauses whose wording appears
+nowhere in the document written from it — the failure where a plan restates five of six
+requirements, cites the notice as its source, and silently drops the sixth. Yellow only:
+"dropped" and "did not need restating" look identical from the outside.
+
 ## Documentation
 
 | doc | covers |
@@ -160,7 +171,7 @@ evidgate pack [list|show <name>]                 # what a pack expands to
 | [Artifact plugin](docs/artifact-plugin.md) | the five manifest rules, why `stale` hashes instead of comparing mtimes, `orphan` scope and cost, the one writer of `source_md5` |
 | [Prose plugin](docs/prose-plugin.md) | the five Chinese rules, the calibration story, sentence boundaries, `EVIDGATE_EVIDENCE` |
 | [Shell and Windows](docs/shell-and-windows.md) | why no shell by default, Git Bash discovery, the Windows false green |
-| [suggest and packs](docs/suggest-and-packs.md) | the first command, the three packs and their parameters |
+| [suggest and packs](docs/suggest-and-packs.md) | the first command, the four packs and their parameters |
 
 ## Examples
 

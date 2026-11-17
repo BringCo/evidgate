@@ -63,7 +63,7 @@ shell 语法却没声明 `shell:`。
 
 ```console
 $ evidgate run --dir examples/mixed
-evidgate 0.9.2.post1 · mixed-delivery (fictional) · 7 checks
+evidgate 0.10.0 · mixed-delivery (fictional) · 7 checks
    D1 FAIL(红)  草稿里的绝对化词带范围或检索日期  ─  -exit 2 (want 0) | got: L3 [首次实现] 本方案首次实现全自动估价流程。 | [absolutes] 1 finding(s)  (exit 2)
    D2 DIFF(黄)  草稿里的统计数字带口径  ─  -exit 3 (want 0) | got: L3 抽样调参后误差降低 18.4%。 | [numeral_scope] 1 finding(s)  (exit 3)
    A1 PASS     产物存在且非空  ─  +exit 0 (want 0) ; +regex OK ─ \d -> 3
@@ -140,6 +140,16 @@ evidgate artifact-stamp --dir <项目> --path <路径>   # 重新生成之后：
 evidgate pack [list|show <名字>]                 # 看一个包展开成什么
 ```
 
+`sources` 是唯一需要两条路径的包：
+
+```bash
+evidgate init --packs sources:src=通知.pdf,doc=作战计划.md
+```
+
+它按条款编号切开源件，报出「在本件里找不到任何对应措辞」的条款——就是那种「照着通知
+写了六条里的五条、引了出处、第六条静默丢掉」的漏。永远黄档：机器分不清「漏抄」和
+「本件不需要重述这一条」。
+
 ## 文档（参考手册为英文）
 
 | 文档 | 讲什么 |
@@ -148,7 +158,7 @@ evidgate pack [list|show <名字>]                 # 看一个包展开成什么
 | [artifact 插件](docs/artifact-plugin.md) | 五条清单规则、为什么 `stale` 比哈希不比时间、`orphan` 的范围与开销、`source_md5` 的唯一写入者 |
 | [prose 插件](docs/prose-plugin.md) | 五条中文规则、校准过程、句子边界、`EVIDGATE_EVIDENCE` |
 | [shell 与 Windows](docs/shell-and-windows.md) | 为什么默认不经 shell、Git Bash 的查找方式、Windows 上那次假绿 |
-| [suggest 与检查包](docs/suggest-and-packs.md) | 第一个命令、三个包与它们的参数 |
+| [suggest 与检查包](docs/suggest-and-packs.md) | 第一个命令、四个包与它们的参数 |
 
 ## 示例
 
