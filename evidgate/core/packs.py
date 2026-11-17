@@ -26,6 +26,9 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
                   "|-----BEGIN [A-Z ]*PRIVATE KEY-----",
     },
     "repo": {"test_cmd": "python3 -m pytest -q", "pattern": "TODO|FIXME|breakpoint\\(\\)"},
+    # sources needs two real paths; these defaults only exist so the placeholder
+    # substitution can explain itself instead of raising a bare KeyError.
+    "sources": {"src": "spec.txt", "doc": "draft.md"},
 }
 
 _PH = re.compile(r"\{(\w+)\}")

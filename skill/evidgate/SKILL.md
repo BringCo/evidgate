@@ -1,6 +1,6 @@
 ---
 name: evidgate
-description: Use when a deliverable needs proof before release — 能不能交付 / 每句话有依据吗 / 帮我过一遍再发 / 证据还在不在 / 数字哪来的. Turns claims into checks that carry a command, a counter-example and a ledger line.
+description: "Use when 能不能交付/证据还在不在/要台账。claims → commands + ledger, with a counter-test per claim."
 ---
 
 # evidgate
@@ -25,6 +25,11 @@ Do not use it for: typography, term consistency, AI-sounding prose (`deliverable
 Vale do those better); whether a cited paper really says what you claim (`refchecker`).
 The `prose` rules only ask "does this sentence carry a scope and a citation" — never
 "is this number correct".
+
+Hand off rather than overlap: `claim-by-claim-audit` decides what a specific sentence
+rests on; `paper-claim-gates` holds the writing-time rules. evidgate's job is narrower —
+express the claim as a command and keep the exit code. If a claim cannot be written as
+an assertion, it stays with those two, not here.
 
 ## First minute
 

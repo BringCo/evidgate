@@ -2,6 +2,51 @@
 
 One line per user-visible change. Dates are when the change landed.
 
+## Unreleased — 2026-11-17
+
+### Added — `sources` pack: a derived document that dropped a clause
+
+A one-page plan restated five of six requirements from an official notice and silently
+dropped the sixth — the one phrased as a permission ("也可自行安排汇报内容顺序"). It
+carried no obligation word, so any keyword filter misses it; and the plan cited the
+notice as its source, so every existence check passed.
+
+`sources` splits the source by clause number and reports the clauses whose wording
+appears nowhere in the document. Measured on that notice (13 clauses): the five restated
+ones scored 0.38–0.83 n-gram coverage at n=4, the dropped one 0.00. At n=8 a restated
+clause fell to 0.03 and became indistinguishable from an absent one — hence n=4.
+
+Yellow, never red: "absent" and "did not need restating" read identically, so the finding
+goes to the confirmation list. It finds missing clauses, not wrong ones — deleting one
+sentence moves a score by about 0.02 (0.58 → 0.56 measured); only deleting the whole
+restatement takes it to 0.00. A steady 0.58 must not be read as "faithfully restated".
+
+Also in this change: `evidgate suggest` proposes the pack when a directory holds both a
+PDF and a `.md`; the bundled skill's description no longer competes with
+`claim-by-claim-audit` for the same trigger words.
+
+### Fixed — four defects found by adversarial testing, two of them introduced above
+
+- **`suggest` recommended a pack that could not run.** It printed `packs: sources`, which
+  leaves the pack on its `spec.txt`/`draft.md` defaults, so a user following the advice
+  hit `file not found` on the first run. It now emits
+  `sources:src=<the pdf>,doc=<the md>` with the real filenames.
+- **`spec.pdf` was counted as a test file.** `TEST_HINTS` matched the bare substring
+  `spec`, so any directory holding a specification PDF was told it had tests, was handed
+  the `repo` pack, and `GR1` then failed red on a project with no tests at all. The
+  hints are now extension-shaped (`.spec.`, `_spec.`, `.test.`, `_test.`, `test_`).
+- **pdftotext page markers polluted every clause they landed in.** `— 5 —` arrives
+  mid-sentence ("字幕。一— 5 —经发现"), splitting a word and spending n-grams on the
+  digits; a clause restated in full measured 0.58 instead of 0.62. Markers are stripped
+  before splitting.
+- **Quoted paths did not survive argument parsing.** `builtin:` methods were split on
+  whitespace, so `--src "a b/spec.pdf"` arrived as three tokens and argparse rejected it.
+  Parsing now uses `shlex` in non-POSIX mode (backslashes stay literal for Windows paths).
+
+Two smaller guards: `--src` and `--doc` pointing at the same file returns 2 ("自己不比自己")
+instead of a guaranteed 1.0; skipped section headings are reported by count, because the
+"short and unpunctuated means heading" rule can in principle swallow a real clause.
+
 ## 0.9.2.post1 — 2026-11-16
 
 ### Docs — the agent use case, and how to install the skill

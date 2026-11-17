@@ -24,7 +24,7 @@ DOC_NAMES = ("paper.md", "draft.md", "manuscript.md", "report.md")
 # files evidgate itself (or common project furniture) writes; never "documents to audit"
 SKIP_DOCS = {"readme.md", "changelog.md", "license.md", "contributing.md",
              "evidgate_ledger.md", "gate_report.md", "gate_report.example.md"}
-TEST_HINTS = ("test_", "_test.", "tests", "spec")
+TEST_HINTS = ("test_", "_test.", ".test.", ".spec.", "_spec.")
 
 
 @dataclass
@@ -147,6 +147,26 @@ def probe(root: str = ".") -> Dict[str, object]:
         findings.append(Finding(
             what="存在 " + "、".join(risky),
             note="确认它被 .gitignore 挡住；build 包的密钥扫描只查交付目录"))
+
+    # 6. a source document plus documents that restate it
+    # The measured failure: a plan restated 5 of 6 requirements from a notice and
+    # dropped the 6th, while citing the notice as its source. Source-existence
+    # checks pass on that; only clause coverage sees it.
+    src_pdfs = sorted(f for f in entries if f.lower().endswith(".pdf"))
+    own_docs = sorted(f for f in entries
+                      if f.lower().endswith(".md") and f.lower() not in SKIP_DOCS)
+    if src_pdfs and own_docs:
+        # The pack needs two paths: recommending bare `sources` leaves it on the
+        # spec.txt/draft.md defaults and the user's first run dies on file-not-found.
+        spec = f"sources:src={src_pdfs[0]},doc={own_docs[0]}"
+        doclist = ", ".join(own_docs[:2])
+        findings.append(Finding(
+            what=(f"同时有 {len(src_pdfs)} 个 PDF 与 {len(own_docs)} 个 .md"
+                  f"（{doclist}…）"),
+            packs=[spec],
+            note="若 .md 是照着 PDF 改写的：先查有没有漏条 —— "
+                 "漏抄的常是没有义务词的柔性条款，不显形；多份文档逐个改 src/doc 再跑一次"))
+        packs.append(spec)
 
     # de-duplicate, keep order
     seen, ordered = set(), []

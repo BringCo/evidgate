@@ -1,0 +1,9 @@
+# pack: sources — 一手源与照着它写的本件之间，条款有没有漏
+checks:
+  - cid: S1
+    name: 源件的每条条款在本件中都有对应内容（{src} → {doc}）
+    method: builtin:coverage:clauses --src {src} --doc {doc}
+    expect: exit:0
+    counter: 把 {doc} 中该条对应的措辞整段删掉（实测：删一句只掉约 0.02，删整段掉到 0.00），该条必须出现在清单里
+    severity: yellow
+    note: 黄 = 本件找不到该条的任何对应措辞，漏抄或不适用两者都长这样，只能人判；PDF 需要 pdftotext，没有就先转 txt

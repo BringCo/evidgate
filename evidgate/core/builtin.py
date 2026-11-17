@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import io
 import os
+import shlex
 import time
 from typing import Callable, Dict, List, Tuple
 
@@ -30,11 +31,26 @@ def _load_default_plugins() -> None:
     if PLUGINS:
         return
     # each builtin entry takes (path) and returns an exit code; prose.scan is that entry
-    from ..plugins import artifact, prose
+    from ..plugins import artifact, coverage, prose
     register("prose", {rule: (lambda argv, _r=rule: prose.scan(argv[0], _r))
                        for rule in prose.RULES})
     register("artifact", {rule: (lambda argv, _r=rule: artifact.run(_r, argv))
                           for rule in artifact.RULES})
+    register("coverage", {rule: (lambda argv, _r=rule: coverage.run(_r, argv))
+                          for rule in coverage.RULES})
+
+
+def _split_args(rest: str) -> List[str]:
+    """Split the argument tail, honouring quotes but never treating \\ as an escape.
+
+    posix=False on purpose: on Windows a quoted path still contains backslashes
+    ("C:\\a b\\spec.pdf"), and POSIX-mode shlex would eat them. Quotes are stripped
+    afterwards, so both `"C:\\a b\\x.pdf"` and bare paths work.
+    """
+    try:
+        return [tok.strip('"').strip("'") for tok in shlex.split(rest, posix=False) if tok.strip()]
+    except ValueError:
+        return rest.split()
 
 
 def parse(method: str) -> Tuple[str, str, List[str]]:
@@ -45,7 +61,7 @@ def parse(method: str) -> Tuple[str, str, List[str]]:
         raise ValueError(
             f"bad builtin method {method!r}; expected builtin:<plugin>:<rule> [args]"
         )
-    return parts[1], parts[2], rest.split()
+    return parts[1], parts[2], _split_args(rest)
 
 
 def dispatch(method: str, cwd: str = ".") -> Evidence:
