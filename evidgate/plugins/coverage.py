@@ -87,14 +87,24 @@ def coverage(clause: str, doc_norm: str, n: int = DEFAULT_N) -> float:
     return sum(1 for g in grams if g in doc_norm) / len(grams)
 
 
+_PAGE_MARK = re.compile(r"[ \t]*[—–-][ \t]*\d{1,3}[ \t]*[—–-][ \t]*")
+
+
 def _strip_page_numbers(text: str) -> str:
     """Drop pdftotext page markers ("— 5 —"), which land mid-sentence.
 
     Measured: "…仅可添加字幕。一— 5 —经发现，视为无效作品" -- the marker splits
     "一经发现" and the leftover digits eat n-grams, understating coverage on a
     clause the derived document restates in full (0.38 measured, deserved higher).
+
+    Only horizontal whitespace may be eaten. With ``\\s*`` the marker also ate the
+    newlines around it, so a marker standing on its own line glued the next line
+    onto the previous one; a clause number that used to start a line
+    ("2. 评审时间…") no longer started one and the whole clause merged into the
+    clause before it. Measured on the 86号 notice: 30 blocks / 26 clauses with
+    ``\\s*``, 31 blocks / 27 clauses with the horizontal-only pattern.
     """
-    return re.sub(r"\s*[—–-]\s*\d{1,3}\s*[—–-]\s*", "", text)
+    return _PAGE_MARK.sub("", text)
 
 
 def _read(path: str) -> str:

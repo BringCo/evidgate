@@ -18,6 +18,7 @@ sys.path.insert(0, ROOT)
 from evidgate.plugins.coverage import (
     _is_heading,
     _norm,
+    _strip_page_numbers,
     coverage,
     run,
     split_clauses,
@@ -61,6 +62,20 @@ class TestClauseSplitting(unittest.TestCase):
         text = "三、作品提交各参赛选手需在 11 月 18 日 23:30 提交，逾期视为弃赛。\n"
         clauses = split_clauses(text)
         self.assertFalse(_is_heading(clauses[0]))
+
+
+class TestPageMarker(unittest.TestCase):
+    def test_marker_on_its_own_line_does_not_glue_two_clauses(self):
+        # Measured: with \s* the marker ate the newlines and "2." stopped
+        # starting a line, so clause 2 merged into clause 1 (26 instead of 27).
+        text = "1. 甲条款正文；\n— 4 —\n2. 乙条款正文；\n"
+        out = _strip_page_numbers(text)
+        self.assertIn("\n2.", out)
+        self.assertEqual([c.cid for c in split_clauses(out)], ["1.", "2."])
+
+    def test_marker_inside_a_word_still_rejoins_it(self):
+        out = _strip_page_numbers("…仅可添加字幕。一— 5 —经发现，视为无效作品")
+        self.assertIn("一经发现", out)
 
 
 class TestCoverage(unittest.TestCase):

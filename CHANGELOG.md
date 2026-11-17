@@ -25,7 +25,7 @@ Also in this change: `evidgate suggest` proposes the pack when a directory holds
 PDF and a `.md`; the bundled skill's description no longer competes with
 `claim-by-claim-audit` for the same trigger words.
 
-### Fixed — four defects found by adversarial testing, two of them introduced above
+### Fixed — five defects found by adversarial testing and a re-measurement, two of them introduced above
 
 - **`suggest` recommended a pack that could not run.** It printed `packs: sources`, which
   leaves the pack on its `spec.txt`/`draft.md` defaults, so a user following the advice
@@ -42,6 +42,14 @@ PDF and a `.md`; the bundled skill's description no longer competes with
 - **Quoted paths did not survive argument parsing.** `builtin:` methods were split on
   whitespace, so `--src "a b/spec.pdf"` arrived as three tokens and argparse rejected it.
   Parsing now uses `shlex` in non-POSIX mode (backslashes stay literal for Windows paths).
+- **Page-marker stripping ate the newline and merged two clauses.** The pattern that
+  removes `— 5 —` was anchored with `\s*`, which also ate the line breaks around it; a
+  marker standing on its own line glued the next line onto the previous one, so
+  `附件；` + `2. 评审时间…` became a single line. A clause number that no longer starts a
+  line cannot be split on, and that clause was swallowed by the one before it — 26
+  clauses instead of 27 on the very notice this pack was measured on. Only horizontal
+  whitespace is eaten now, so a marker inside a word (`一— 5 —经发现`) still rejoins it.
+  (Found by re-running the measurement, not by a test — the suite was green throughout.)
 
 Two smaller guards: `--src` and `--doc` pointing at the same file returns 2 ("自己不比自己")
 instead of a guaranteed 1.0; skipped section headings are reported by count, because the
