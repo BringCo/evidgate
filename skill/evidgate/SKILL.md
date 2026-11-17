@@ -19,6 +19,8 @@ Use it when:
 - a deliverable is about to leave your hands (report, paper draft, application
   material, a built artifact directory), or is handed to another window or person;
 - the user asks "能不能交付 / 每句话有依据吗 / 帮我过一遍再发 / 这个数字哪来的";
+- the deliverable restates an official notice, a spec, or another document, and you need
+  to know whether a clause of it went missing — that is the `sources` pack, below;
 - a check that used to pass may have quietly stopped working.
 
 Do not use it for: typography, term consistency, AI-sounding prose (`deliverable-qa`,
@@ -102,6 +104,7 @@ there are five.
 
 ```bash
 evidgate init --dir <proj> [--packs figures,build] [--force]
+evidgate init --dir <proj> --packs sources:src=notice.pdf,doc=plan.md   # the one pack that needs paths
 evidgate suggest --dir <proj> [--write]        # --write also writes evidgate.yaml
 evidgate doctor --dir <proj>
 evidgate run --dir <proj> [--only C1,P2]
@@ -120,6 +123,33 @@ evidgate pack [list|show <name>]
 against a good tree and against a copy with one planted defect, then reports
 `detection power: 1/1` or `NOT caught`.
 
+## The `sources` pack
+
+`packs: sources:src=<one-hand source>,doc=<what you wrote from it>` — clause coverage
+between the two. `suggest` spots "a source PDF and documents next to it" and prints the
+line with both paths filled in; bare `sources` keeps the `spec.txt`/`draft.md`
+placeholders and dies on first run.
+
+It exists because of a measured failure: a plan restated five of six requirements from an
+official notice, cited the notice as its source, and dropped the sixth — the only clause
+expressed with 也可, carrying no obligation word. Source-existence checks passed; every
+keyword filter passed.
+
+- Splits the source by **clause number** (`1.` / `二、` / `附件`), not by line and not by
+  obligation word. Line-splitting puts the dropped clause outside the sample.
+- n-gram coverage, n=4, threshold 0.05. The dropped clause measured 0.00; the five present
+  ones 0.38–0.83.
+- **Yellow, always.** A low score means "shares no wording", which is either a dropped
+  clause or a clause this document never needed to restate. Only a human can tell those
+  apart, so it goes to the confirmation list and never to red.
+- Limits, measured: finds a **whole missing clause, not a half-copied one** (0.05–0.11 is
+  noise territory); one `doc` per run — three documents means three runs; deleting one
+  sentence moves a score by ~0.02, so a stable score is **not** proof of faithful
+  restatement. Clause count is reported; clauses skipped as bare section headings are
+  counted out loud.
+- Needs clause numbers and a text layer. A scanned PDF has neither → exit 2 (declined, not
+  passed). Install `poppler-utils` for `pdftotext`.
+
 ## Troubleshooting
 
 1. **`doctor` says BAD** — fix that first; the project is not at fault yet. Either the
@@ -131,6 +161,9 @@ against a good tree and against a copy with one planted defect, then reports
    bug. Mature projects do not commit secrets or leave `.bak` files. Its value is the last
    look at your own deliverable before you hand it over; do not sell it as an audit tool
    for other people's repositories.
+4. **`sources` exits 2** — it declined to judge; that is not a pass. Causes: the source has
+   no clause numbers, no text layer (scanned PDF, missing `pdftotext`), or `--src` and
+   `--doc` point at the same file.
 
 ## Working rules
 
