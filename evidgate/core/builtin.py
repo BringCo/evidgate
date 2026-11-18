@@ -31,13 +31,15 @@ def _load_default_plugins() -> None:
     if PLUGINS:
         return
     # each builtin entry takes (path) and returns an exit code; prose.scan is that entry
-    from ..plugins import artifact, coverage, prose
+    from ..plugins import artifact, coverage, prose, source
     register("prose", {rule: (lambda argv, _r=rule: prose.scan(argv[0], _r))
                        for rule in prose.RULES})
     register("artifact", {rule: (lambda argv, _r=rule: artifact.run(_r, argv))
                           for rule in artifact.RULES})
     register("coverage", {rule: (lambda argv, _r=rule: coverage.run(_r, argv))
                           for rule in coverage.RULES})
+    register("source", {rule: (lambda argv, _r=rule: source.run(_r, argv))
+                        for rule in source.RULES})
 
 
 def _split_args(rest: str) -> List[str]:

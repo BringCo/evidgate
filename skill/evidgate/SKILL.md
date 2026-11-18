@@ -165,6 +165,88 @@ keyword filter passed.
    no clause numbers, no text layer (scanned PDF, missing `pdftotext`), or `--src` and
    `--doc` point at the same file.
 
+## Sources must be fresh (the half `artifact-stamp` does not cover)
+
+`artifact-stamp` stops a stale *derivative* from being sold as fresh. The mirror failure is a
+stale *source*: a report, a status file, a screenshot describing an older reality than the one
+you are answering about. A citation that resolves only proves the file exists.
+
+Measured failure: answered "cloud runs the V4 frontend" from a stop-point file dated three days
+earlier, while a report written one day later recorded the user reversing that decision — every
+existence check passed, the answer was wrong. Same session, second instance: read a 02:06
+wrap-up as "the full picture" and missed a 23:24 report from the same night that had already
+shipped the feature.
+
+Rules, when a claim's evidence is a report or status doc:
+
+- **Scan by mtime, never by filename.** `ls -t` over the last 48 hours *and across days*; the
+  `0N_` prefix says nothing about age, and a same-day `02_…` can be hours newer than the `03_…`
+  you happened to open first.
+- **Stop-point / index files expire first.** If `00_…_READ_FIRST.md` is older than the newest
+  report, say "stop-point is from <date>, stale" before quoting it — never present it as current.
+- **Conflicts resolve to newest mtime + a first-hand probe** (source tree, DB, live endpoint).
+  Older reports are history, not status.
+- **Make it a gate, not a habit.** Now built in — `builtin:source:fresh` (evidgate ≥ 0.10.0,
+  `plugins/source.py`), so it works on every OS with no shell and no PATH:
+
+```yaml
+checks:
+  - cid: F1
+    name: 引用的报告是同主题最新（不存在更新的同主题报告）
+    method: builtin:source:fresh --cited 每日报告/2026-11/2026-11-18/银光之慧/03_收口.md --glob '0*_*.md'
+    expect: exit:0
+    counter: 在同目录放一份 mtime 更新、同主题的报告，本项必须变红
+    severity: red
+```
+
+  Output is self-describing: green prints `OK cited=… mtime=… md5=… scanned=N newer=0`;
+  red prints `NEWER …` plus each newer file with its mtime, and exit 1. A missing cited file
+  exits **2 (DECLINED)** — never a pass. Flags: `--cited` (required), `--dir` (scope, defaults
+  to the cited file's folder), `--glob` (default `*.md`), `--all` (no 10-line cap),
+  `--recursive` (walk subfolders, capped at 5000 files).
+  **One command, no yaml:** `evidgate source --cited <file> [--dir <topic folder>]`.
+  Scan is **one level deep by default** — on a 9p mount (/mnt/c in WSL) a recursive walk of a
+  month of reports took 23s and of the whole tree over 60s, while "anything newer in this
+  topic's folder" is answered by one listing (1.6s, mostly interpreter startup).
+  Backup trees (`_历史原稿/`, `_废料桶/`, `99_历史与参考/`) are skipped in recursive mode: a dated
+  snapshot is an older version carrying a fresh mtime and reds a correct citation.
+  The same check is also wired as a Hermes `post_tool_call` hook
+  (`~/.hermes/hooks/source_fresh_gate.py`), so reading an outdated report injects a warning
+  without anyone having to remember to run it.
+
+  Shell form, if you must (no evidgate available):
+
+```yaml
+checks:
+  - cid: F1s
+    shell: bash
+    method: |
+      n=$(find "$RPT_DIR" -name "$GLOB" -newer "$CITED" | wc -l); echo "$n"; test "$n" -eq 0
+    expect: exit:0; regex:^0$
+    counter: 放一份 mtime 更新、同主题的报告，本项必须变红
+    severity: red
+```
+
+- Report the cited file's mtime beside the claim, the same way you report an exit code.
+
+**Limits, measured against a live run** (evidgate 0.10.0.post1, three-state test: cite an
+older report → `F1 FAIL(红) RELEASE BLOCKED`; cite the newest → `PASS`; add one more newer
+file → red again, so the counter holds):
+
+- **It must be scoped or it cries wolf.** `find $RPT_DIR -newer` reds on *any* newer file,
+  including unrelated threads. Point `RPT_DIR` at one topic's folder (or add a `-name` glob);
+  in the test an unrelated file `04_d.md` alone flipped it red.
+- **It only sees mtime, and mtime lies.** `cp -p` / sync tools carry the old mtime across, so a
+  rewritten report can look ancient and pass. Pair it with a content hash on the files you
+  actually cite (`md5sum`), and treat "no newer mtime" as "no newer mtime", not "content fresh".
+- It cannot tell whether the report itself is *correct* — only that no newer same-topic one
+  exists. Conflicts still resolve to a first-hand probe (source tree, DB, live endpoint).
+- **Same-second writes are indistinguishable on 9p** (/mnt/c from WSL): two files created in
+  one second report the identical mtime (`1794975875.240521789` for both, measured), so
+  "report 02 was written right after 01" can pass as "no newer file". If two reports of the
+  same topic share a timestamp to the second, break the tie with the content (which one quotes
+  the other) instead of trusting the order.
+
 ## Working rules
 
 - Never edit a verdict by hand, and never rebuild the ledger to make it look green. The

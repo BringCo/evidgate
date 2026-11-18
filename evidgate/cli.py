@@ -211,6 +211,21 @@ def cmd_init(a) -> int:
     return 0
 
 
+def cmd_source(a) -> int:
+    """`evidgate source --cited <file>` — one command, any project, no shell needed."""
+    from .plugins import source as _source
+    argv = ["--cited", a.cited]
+    if a.dir:
+        argv += ["--dir", a.dir]
+    if a.glob:
+        argv += ["--glob", a.glob]
+    if a.all:
+        argv.append("--all")
+    if getattr(a, "recursive", False):
+        argv.append("--recursive")
+    return _source.run("fresh", argv)
+
+
 def cmd_prose_init(a) -> int:
     d = a.dir
     p = os.path.join(d, CONFIG)
@@ -583,6 +598,14 @@ def main(argv=None) -> int:
     p = sub.add_parser("prose", help="Chinese prose rules")
     p.add_argument("rest", nargs=argparse.REMAINDER)
     p.set_defaults(fn=None)
+
+    p = sub.add_parser("source", help="is the cited document the newest on its topic?")
+    p.add_argument("--cited", required=True, help="the file you are about to quote")
+    p.add_argument("--dir", default=None, help="scope to one topic folder (default: cited file's folder)")
+    p.add_argument("--glob", default="*.md", help="filename pattern inside the scope (default *.md)")
+    p.add_argument("--all", action="store_true", help="list every newer file, not just the first 10")
+    p.add_argument("--recursive", action="store_true", help="walk subfolders too (slower; capped at 5000 files)")
+    p.set_defaults(fn=cmd_source)
 
     p = sub.add_parser("prose-init", help="append prose checks to evidgate.yaml")
     p.add_argument("--dir", default=".")
